@@ -58,6 +58,14 @@ public class SecureSocket {
         return in.read(data);
     }
 
+    public void writeInt(int num) throws Exception {
+        out.writeInt(num);
+    }
+
+    public int readInt() throws Exception {
+        return in.readInt();
+    }
+
     public List<Peer> getPeerList() throws Exception {
         throw new Exception("Not implemented");
     }

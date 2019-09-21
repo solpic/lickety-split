@@ -22,6 +22,7 @@ public class FileSharer {
     public void upSync(SecureSocket socket, ShareableFile file) throws Exception {
         FileInputStream fis = new FileInputStream(file);
         byte[] buffer = new byte[4096];
+        socket.writeInt((int) file.length());
 
         while (fis.read(buffer) > 0) {
             socket.sendData(buffer);
@@ -34,11 +35,14 @@ public class FileSharer {
         FileOutputStream fos = new FileOutputStream("received2testfile.txt");
         byte[] buffer = new byte[4096];
 
-        int fileSize = 9; // Send file size in separate msg
+        int fileSize = -1;
+        while(fileSize < 0){
+            fileSize = socket.readInt();
+        }
         int read = 0;
         int totalRead = 0;
         int remaining = fileSize;
-
+        System.out.println("File Size: " + fileSize);
         while((read = socket.receiveData(buffer, 0, Math.min(buffer.length, remaining))) > 0) {
             totalRead += read;
             remaining -= read;
