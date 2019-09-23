@@ -17,7 +17,6 @@ public class FileSharerTest {
         class ServerThread extends Thread {
             public void run() {
                 FileSharer sender = new FileSharer();
-                System.out.println(new ShareableFile(".").getAbsolutePath());
                 ShareableFile file = new ShareableFile("/Users/williamnewman/SeniorDesign/lickety-split/src/test.txt");
                 System.out.println("SERVER: Starting server thread");
                 try {

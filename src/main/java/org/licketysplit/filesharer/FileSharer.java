@@ -2,22 +2,13 @@ package org.licketysplit.filesharer;
 
 import org.licketysplit.securesocket.*;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.IOException;
 
 public class FileSharer {
     private SecureSocket client;
-    private ShareableFile file;
 
-    public FileSharer() {
-
-    }
-
-    public void loadFile(String pathname) {
-        this.file = new ShareableFile(pathname);
-    }
+    public FileSharer() {}
 
     public void upSync(SecureSocket socket, ShareableFile file) throws Exception {
         FileInputStream fis = new FileInputStream(file);
@@ -39,14 +30,13 @@ public class FileSharer {
         while(fileSize < 0){
             fileSize = socket.readInt();
         }
+
         int read = 0;
         int totalRead = 0;
         int remaining = fileSize;
-        System.out.println("File Size: " + fileSize);
         while((read = socket.receiveData(buffer, 0, Math.min(buffer.length, remaining))) > 0) {
             totalRead += read;
             remaining -= read;
-            System.out.println("read " + totalRead + " bytes.");
             fos.write(buffer, 0, read);
         }
 
