@@ -6,13 +6,18 @@ import java.io.*;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.io.*;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 public class FileManager {
 
     public FileManager(){}
 
+    //INITIALIZATION
+
     public void initializeFiles(String directoryLocation, String username){
-        boolean directoryCreated = new File(System.getProperty("user.home") + "/LicketySplit").mkdirs();
+        Path path = Paths.get(System.getProperty("user.home"), "LicketySplit");
+        boolean directoryCreated = new File(path.toString()).mkdirs();
         if(!directoryCreated) { // If directory created then don't initialize, mostly for testing right now
             return;
         }
@@ -22,8 +27,10 @@ public class FileManager {
     }
 
     private void initializeConfigs(String directoryLocation, String username){
+        //Create's configs file and fills it with configs JSON object {sharedDirectory, username}
         ObjectMapper mapper = new ObjectMapper();
-        File configs = new File(this.getConfigsDirectory() + ".configs.txt");
+        File configs = new File(this.getConfigsPath( ".configs.txt"));
+
         try {
             FileOutputStream outputStream = new FileOutputStream(configs);
             JsonGenerator generator = mapper.getFactory().createGenerator(outputStream);
@@ -35,17 +42,21 @@ public class FileManager {
     }
 
     private void initializeManifest(){
-        File file = new File(this.getConfigsDirectory() + ".manifest.txt");
+        File file = new File(this.getConfigsPath( ".manifest.txt"));
     }
 
-    private String getConfigsDirectory(){
-        return System.getProperty("user.home") + "/LicketySplit/";
+    //GETTERS
+
+    private String getConfigsPath(String fileName){
+        Path path = Paths.get(System.getProperty("user.home"), "LicketySplit", fileName);
+        return path.toString();
     }
 
-    public String getSharedDirectory(){
+    public String getSharedDirectoryPath(){
         ObjectMapper mapper = new ObjectMapper();
+
         try{
-            ConfigsInfo configs = mapper.readValue(new File(this.getConfigsDirectory() + ".configs.txt"), ConfigsInfo.class);
+            ConfigsInfo configs = mapper.readValue(new File(this.getConfigsPath( ".configs.txt")), ConfigsInfo.class);
             return configs.getSharedDirectory();
         } catch(IOException e){
             e.printStackTrace();
@@ -55,12 +66,14 @@ public class FileManager {
 
     public String getUsername(){
         ObjectMapper mapper = new ObjectMapper();
+
         try{
-            ConfigsInfo configs = mapper.readValue(new File(this.getConfigsDirectory() + ".manifest.txt"), ConfigsInfo.class);
+            ConfigsInfo configs = mapper.readValue(new File(this.getConfigsPath( ".manifest.txt")), ConfigsInfo.class);
             return configs.getUsername();
         } catch(IOException e){
             e.printStackTrace();
         }
+
         return "";
     }
 
@@ -68,9 +81,10 @@ public class FileManager {
     public void addFile(String fileLocation){
         ObjectMapper mapper = new ObjectMapper();
         File source = new File(fileLocation);
-        File dest = new File(this.getSharedDirectory() + source.getName());
+        File dest = new File(this.getSharedDirectoryPath() + source.getName());
+
         try {
-            FileOutputStream outputStream = new FileOutputStream(new File(this.getConfigsDirectory() + ".manifest.txt"));
+            FileOutputStream outputStream = new FileOutputStream(new File(this.getConfigsPath( ".manifest.txt")));
             JsonGenerator generator = mapper.getFactory().createGenerator(outputStream);
             this.addFileHelper(source, dest);
             mapper.writeValue(generator, new FileInfo(dest));
