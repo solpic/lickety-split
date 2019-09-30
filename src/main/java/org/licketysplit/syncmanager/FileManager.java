@@ -5,6 +5,7 @@ import java.io.*;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SequenceWriter;
 import org.apache.commons.io.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -84,11 +85,17 @@ public class FileManager {
         File dest = new File(this.getSharedDirectoryPath() + source.getName());
 
         try {
-            FileOutputStream outputStream = new FileOutputStream(new File(this.getConfigsPath( ".manifest.txt")));
-            JsonGenerator generator = mapper.getFactory().createGenerator(outputStream);
-            this.addFileHelper(source, dest);
-            mapper.writeValue(generator, new FileInfo(dest));
-            generator.close();
+            if(dest.length() == 0) { //If first file added
+                FileWriter fileWriter = new FileWriter(new File(this.getConfigsPath(".manifest.txt")), true);
+                SequenceWriter seqWriter = mapper.writer().writeValuesAsArray(fileWriter);
+                this.addFileHelper(source, dest);
+                seqWriter.write(new FileInfo(dest));
+                seqWriter.close();
+            } else { //If preexisting files
+                JsonGenerator g = mapper.getFactory().createGenerator(new FileOutputStream(".manifest.txt"));
+                mapper.writeValue(g, new FileInfo(source));
+                g.close();
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
