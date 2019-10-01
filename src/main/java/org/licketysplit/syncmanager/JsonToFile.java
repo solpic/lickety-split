@@ -5,6 +5,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
@@ -23,11 +24,23 @@ public class JsonToFile {
         return new JSONObject(FileUtils.readFileToString(file, StandardCharsets.UTF_8));
     }
 
-    public void writeJSONArray(JSONArray arr) throws IOException {
-        FileUtils.writeByteArrayToFile(file, arr.toString().getBytes("utf-8"));
+    public void writeJSONArray(JSONArray arr) {
+        try {
+            FileWriter writer = new FileWriter(file);
+            writer.write(arr.toString());
+            writer.flush();
+        } catch( IOException e){
+            e.printStackTrace();
+        }
     }
 
-    public void writeJSONObject(JSONObject obj) throws IOException {
-        FileUtils.writeByteArrayToFile(file, obj.toString().getBytes("utf-8"));
+    public void writeJSONObject(JSONObject obj) {
+        try {
+            FileWriter writer = new FileWriter(file);
+            writer.write(obj.toString());
+            writer.flush();
+        } catch( IOException e){
+            e.printStackTrace();
+        }
     }
 }

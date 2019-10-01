@@ -1,17 +1,18 @@
 package org.licketysplit.syncmanager;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 
 
 public class ConfigsInfo {
     private String username;
     private String sharedDirectory;
 
-    @JsonCreator
-    public ConfigsInfo(@JsonProperty("username") String username, @JsonProperty("sharedDirectory") String sharedDirectory){
+    public ConfigsInfo(String username, String sharedDirectory){
         this.username = username;
         this.sharedDirectory = sharedDirectory;
+    }
+
+    public String toString() {
+        return "{\"username\": \"" + this.username + "\", \"sharedDirectory\": \"" + this.sharedDirectory + "\"}";
     }
 
     public String getUsername() {
