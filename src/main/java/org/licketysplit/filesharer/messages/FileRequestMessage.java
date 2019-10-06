@@ -10,11 +10,14 @@ public class FileRequestMessage extends Message {
 
     @Override
     public byte[] toBytes() {
-        return data.toString().getBytes();
+        return data.getBytes();
     }
 
     @Override
-    public void fromBytes(byte[] data) {}
+    public void fromBytes(byte[] data) {
+        this.data = new String(data);
+    }
+
 
     public FileRequestMessage() {}
 
@@ -22,36 +25,31 @@ public class FileRequestMessage extends Message {
         this.data = fileName;
     }
 
+    public static class FileRequestResponseHandler implements MessageHandler {
+        @Override
+        public void handle(ReceivedMessage m) {
+            FileRequestResponseMessage decodedMessage = (FileRequestResponseMessage) m.getMessage();
+
+            try {
+                System.out.println(decodedMessage.data);
+            }catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
 
     @DefaultHandler(type = FileRequestMessage.class)
     public static class FileRequestHandler implements MessageHandler {
         @Override
         public void handle(ReceivedMessage m) {
             FileRequestMessage tstMsg = (FileRequestMessage) m.getMessage();
-            System.out.println("Received: "+tstMsg.data);
+            System.out.println("s2" + tstMsg.data);
+
             try {
-                m.respond(new FileRequestMessage(), new TestHandler());
+                m.respond(new FileRequestResponseMessage("jojo"), new FileRequestResponseHandler());
             }catch (Exception e) {
                 e.printStackTrace();
             }
         }
     }
-    public static class TestMessage extends Message {
-        @Override
-        public byte[] toBytes() {
-            return data.toString().getBytes();
-        }
-
-        @Override
-        public void fromBytes(byte[] data) {
-            this.data = Integer.parseInt(new String(data));
-        }
-        public TestMessage() {}
-
-        public Integer data;
-        public TestMessage(int data) {
-            this.data = data;
-        }
-    }
-
 }

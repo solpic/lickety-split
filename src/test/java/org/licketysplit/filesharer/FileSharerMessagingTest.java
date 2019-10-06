@@ -1,6 +1,8 @@
 package org.licketysplit.filesharer;
 
 import org.junit.Test;
+import org.licketysplit.filesharer.messages.FileRequestMessage;
+import org.licketysplit.filesharer.messages.FileRequestResponseMessage;
 import org.licketysplit.securesocket.PeerInfo;
 import org.licketysplit.securesocket.SecureSocket;
 import org.licketysplit.securesocket.messages.DefaultHandler;
@@ -9,35 +11,17 @@ import org.licketysplit.securesocket.messages.MessageHandler;
 import org.licketysplit.securesocket.messages.ReceivedMessage;
 
 public class FileSharerMessagingTest {
-    @DefaultHandler(type = TestMessage.class)
-    public static class TestHandler implements MessageHandler {
+
+    public static class FileRequestResponseHandler implements MessageHandler {
         @Override
         public void handle(ReceivedMessage m) {
-            TestMessage tstMsg = (TestMessage)m.getMessage();
-            System.out.println("Received: "+tstMsg.data);
-            if(tstMsg.data>1000) System.exit(0);
+            FileRequestResponseMessage decodedMessage = (FileRequestResponseMessage) m.getMessage();
+
             try {
-                m.respond(new TestMessage(tstMsg.data*2), new TestHandler());
+                System.out.println(decodedMessage.data.toString());
             }catch (Exception e) {
                 e.printStackTrace();
             }
-        }
-    }
-    public static class TestMessage extends Message {
-        @Override
-        public byte[] toBytes() {
-            return data.toString().getBytes();
-        }
-
-        @Override
-        public void fromBytes(byte[] data) {
-            this.data = Integer.parseInt(new String(data));
-        }
-        public TestMessage() {}
-
-        public Integer data;
-        public TestMessage(int data) {
-            this.data = data;
         }
     }
 
@@ -56,7 +40,7 @@ public class FileSharerMessagingTest {
                     synchronized (lock) {
                         lock.notify();
                     }
-                } catch(Exception e) {
+                } catch (Exception e) {
                     System.out.println("Exception!");
                     e.printStackTrace();
                 }
@@ -69,10 +53,11 @@ public class FileSharerMessagingTest {
         System.out.println("CLIENT: Connecting to server");
         SecureSocket client = SecureSocket.connect(new PeerInfo("localhost", testPort, true));
 
-        client.sendFirstMessage(new TestMessage(2), new TestHandler());
+        client.sendFirstMessage(new FileRequestMessage("hello"), new FileRequestResponseHandler());
 
         synchronized (lock) {
             lock.wait();
         }
     }
 }
+
