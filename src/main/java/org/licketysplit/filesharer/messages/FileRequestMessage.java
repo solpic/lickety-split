@@ -43,10 +43,9 @@ public class FileRequestMessage extends Message {
         @Override
         public void handle(ReceivedMessage m) {
             FileRequestMessage tstMsg = (FileRequestMessage) m.getMessage();
-            System.out.println("s2" + tstMsg.data);
-
+            String requestedFileName = tstMsg.data;
             try {
-                m.respond(new FileRequestResponseMessage("jojo"), new FileRequestResponseHandler());
+                m.respond(new FileRequestResponseMessage(requestedFileName), new FileRequestResponseHandler());
             }catch (Exception e) {
                 e.printStackTrace();
             }

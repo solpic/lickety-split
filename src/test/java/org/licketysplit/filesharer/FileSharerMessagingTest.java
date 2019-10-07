@@ -10,15 +10,19 @@ import org.licketysplit.securesocket.messages.Message;
 import org.licketysplit.securesocket.messages.MessageHandler;
 import org.licketysplit.securesocket.messages.ReceivedMessage;
 
+import java.io.FileOutputStream;
+
 public class FileSharerMessagingTest {
 
     public static class FileRequestResponseHandler implements MessageHandler {
         @Override
         public void handle(ReceivedMessage m) {
             FileRequestResponseMessage decodedMessage = (FileRequestResponseMessage) m.getMessage();
-
+            System.out.println(decodedMessage.data.length);
             try {
-                System.out.println(decodedMessage.data.toString());
+                 FileOutputStream fos = new FileOutputStream("/Users/williamnewman/Testing/t2/tester.txt");
+                 fos.write(decodedMessage.data, 0, decodedMessage.data.length);
+                 fos.close();
             }catch (Exception e) {
                 e.printStackTrace();
             }
@@ -53,7 +57,7 @@ public class FileSharerMessagingTest {
         System.out.println("CLIENT: Connecting to server");
         SecureSocket client = SecureSocket.connect(new PeerInfo("localhost", testPort, true));
 
-        client.sendFirstMessage(new FileRequestMessage("hello"), new FileRequestResponseHandler());
+        client.sendFirstMessage(new FileRequestMessage("/Users/williamnewman/Testing/t1/tester.txt"), new FileRequestResponseHandler());
 
         synchronized (lock) {
             lock.wait();
