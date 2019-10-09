@@ -1,33 +1,39 @@
 package org.licketysplit.securesocket;
 
+import org.licketysplit.env.EnvLogger;
+import org.licketysplit.env.Environment;
 import org.licketysplit.securesocket.messages.DefaultHandler;
 import org.licketysplit.securesocket.messages.Message;
 import org.licketysplit.securesocket.messages.MessageHandler;
 import org.licketysplit.securesocket.messages.ReceivedMessage;
+import org.licketysplit.securesocket.peers.PeerManager;
 import org.reflections.Reflections;
 
 import java.lang.reflect.Constructor;
 import java.util.Arrays;
-import java.util.List;
 import java.net.*;
 import java.io.*;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.logging.Level;
 
 public class SecureSocket {
     private Socket socket;
     private final DataOutputStream out;
     private final DataInputStream in;
+    private Environment env;
+    private EnvLogger log;
 
 
     //<editor-fold desc="Constructor/deconstructor">
-    public SecureSocket(Socket socket, DataOutputStream out, DataInputStream in) throws Exception {
+    public SecureSocket(Socket socket, DataOutputStream out, DataInputStream in, Environment env) throws Exception {
         this.socket = socket;
         this.out = out;
         this.in = in;
+        this.env = env;
+        this.log = env.getLogger();
 
         initMessagingService();
     }
@@ -37,23 +43,36 @@ public class SecureSocket {
         out.close();
         socket.close();
     }
-    //</editor-fold>
-    //<editor-fold desc="Factories">
-    public static SecureSocket listen(int port) throws Exception {
-        ServerSocket serverSocket = new ServerSocket(port);
-        Socket clientSocket = serverSocket.accept();
-        DataOutputStream output = new DataOutputStream(clientSocket.getOutputStream());
-        DataInputStream input = new DataInputStream(clientSocket.getInputStream());
-
-        return new SecureSocket(clientSocket, output, input);
+    public static interface NewConnectionCallback {
+        void onConnect(SecureSocket sock) throws Exception;
     }
 
-    public static SecureSocket connect(PeerInfo peer) throws Exception {
+    public PeerManager.PeerAddress getPeerAddress() {
+        return new PeerManager.PeerAddress(socket.getInetAddress().toString(), socket.getPort(), false);
+    }
+
+    //</editor-fold>
+    //<editor-fold desc="Factories">
+    public static void listen(int port, NewConnectionCallback fnc, Environment env) throws Exception {
+        ServerSocket serverSocket = new ServerSocket(port);
+        while(true) {
+            env.getLogger().log(Level.INFO,
+                    "Listening for new connection");
+            Socket clientSocket = serverSocket.accept();
+            DataOutputStream output = new DataOutputStream(clientSocket.getOutputStream());
+            DataInputStream input = new DataInputStream(clientSocket.getInputStream());
+            env.getLogger().log(Level.INFO,"Accepting new connection");
+            fnc.onConnect(new SecureSocket(clientSocket, output, input, env));
+        }
+    }
+
+    public static SecureSocket connect(PeerManager.PeerAddress peer, Environment env) throws Exception {
+        env.getLogger().log(Level.INFO,"Attempting to connect");
         Socket clientSocket = new Socket(peer.getIp(), peer.getPort());
         DataOutputStream output = new DataOutputStream(clientSocket.getOutputStream());
         DataInputStream input = new DataInputStream(clientSocket.getInputStream());
-
-        return new SecureSocket(clientSocket, output, input);
+        env.getLogger().log(Level.INFO,"Connecting");
+        return new SecureSocket(clientSocket, output, input, env);
     }
     //</editor-fold>
 
@@ -99,26 +118,26 @@ public class SecureSocket {
 
                     byte[] payload = new byte[size];
                     in.read(payload, 0, size);
-                    System.out.println(String.format("Received message of size: %d, MyID: %d, ResponseID: %d, classcode: %d", size, myId, responseId, classCode));
+                    log.log(Level.INFO, String.format("Received message of size: %d, MyID: %d, ResponseID: %d, classcode: %d", size, myId, responseId, classCode));
+
 
                     Message msg;// = Message.factory(classCode, payload);
                     msg = (Message)messageCodes[classCode].getConstructor().newInstance();
                     msg.fromBytes(payload);
                     MessageHandler messageHandler;
-                    if(myId>=0) {
+                    if(messageHandlers.containsKey(myId)) {
                          messageHandler = messageHandlers.get(myId);
                     }else{
                         messageHandler = defaultHandlers.get(classCode);
                     }
-                    messageHandler.handle(new ReceivedMessage(msg, SecureSocket.this, responseId));
+                    messageHandler.handle(new ReceivedMessage(msg, SecureSocket.this, responseId, env));
                 } catch (Exception e) {
-                    System.err.println("Error in reader thread");
+                    log.log(Level.SEVERE,"Error in reader thread");
                     e.printStackTrace();
                 }
             }
         }
     }
-
 
     // Sits/blocks on output stream
     // Gets next message from queue, generates unused ID, sends message and puts handler in map
@@ -136,7 +155,7 @@ public class SecureSocket {
                     Integer classCode = getOpCode(nextMessage.msg);
                     byte[] payload = nextMessage.msg.toBytes();
 
-                    System.out.println(String.format("Sending message with ID: %d, ResponseID: %d, Code: %d, Size: %d", id, nextMessage.respondingToMessage, classCode, payload.length));
+                    log.log(Level.INFO, String.format("Sending message with ID: %d, ResponseID: %d, Code: %d, Size: %d", id, nextMessage.respondingToMessage, classCode, payload.length));
 
                     out.writeInt(id);
                     out.writeInt(nextMessage.respondingToMessage);
@@ -144,7 +163,7 @@ public class SecureSocket {
                     out.writeInt(payload.length);
                     out.write(payload);
                 } catch (Exception e) {
-                    System.err.println("Exception during socket writer");
+                    log.log(Level.SEVERE, "Exception during socket writer");
                     e.printStackTrace();
                 }
             }
@@ -163,7 +182,6 @@ public class SecureSocket {
     public static void initDefaultHandlers() throws Exception {
         synchronized (defaultHandlersLock) {
             if (defaultHandlers == null && messageCodes == null) {
-                System.out.println("Running default handler initialozro");
                 defaultHandlers = new ConcurrentHashMap<>();
                 Reflections reflections = new Reflections("org.licketysplit");
                 Set<Class<? extends Message>> messageTypes = reflections.getSubTypesOf(Message.class);
@@ -204,6 +222,7 @@ public class SecureSocket {
     // Generates ID and assigns handler to map
     Integer assignHandler(MessageHandler handler) {
         Integer id = messageHandlers.size();
+        if(handler==null) return id;
 
         while(messageHandlers.putIfAbsent(id, handler)!=null) {
             id++;
@@ -240,9 +259,5 @@ public class SecureSocket {
 
     public void sendFirstMessage(Message msg, MessageHandler handler) throws Exception {
         sendMessage(msg, handler, -1);
-    }
-
-    public List<Peer> getPeerList() throws Exception {
-        throw new Exception("Not implemented");
     }
 }
