@@ -5,8 +5,9 @@ import org.licketysplit.securesocket.messages.Message;
 import org.licketysplit.securesocket.messages.MessageHandler;
 import org.licketysplit.securesocket.messages.ReceivedMessage;
 
-public class FileRequestMessage extends Message {
-    public String fileName;
+public class ChunkDownloadRequest extends Message {
+    public int chunkIntervalStart; // include start chunk
+    public int chunkIntervalEnd;  // end of interval, do not include end chunk
 
     @Override
     public byte[] toBytes() {
@@ -19,16 +20,16 @@ public class FileRequestMessage extends Message {
     }
 
 
-    public FileRequestMessage() {}
+    public ChunkDownloadRequest() {}
 
-    public FileRequestMessage(String fileName){
+    public ChunkDownloadRequest(int chunkIntervalStart, int chunkIntervalEnd){
         this.fileName = fileName;
     }
 
     public static class FileRequestResponseHandler implements MessageHandler {
         @Override
         public void handle(ReceivedMessage m) {
-            FileRequestResponseMessage decodedMessage = (FileRequestResponseMessage) m.getMessage();
+            ChunkDownloadResponse decodedMessage = (ChunkDownloadResponse) m.getMessage();
             try {
                 System.out.println(decodedMessage.data);
             }catch (Exception e) {
@@ -37,14 +38,14 @@ public class FileRequestMessage extends Message {
         }
     }
 
-    @DefaultHandler(type = FileRequestMessage.class)
+    @DefaultHandler(type = ChunkDownloadRequest.class)
     public static class FileRequestHandler implements MessageHandler {
         @Override
         public void handle(ReceivedMessage m) {
-            FileRequestMessage tstMsg = (FileRequestMessage) m.getMessage();
+            ChunkDownloadRequest tstMsg = (ChunkDownloadRequest) m.getMessage();
             String requestedFileName = tstMsg.fileName;
             try {
-                m.respond(new FileRequestResponseMessage(requestedFileName), new FileRequestResponseHandler());
+                m.respond(new ChunkDownloadResponse(requestedFileName), new FileRequestResponseHandler());
             }catch (Exception e) {
                 e.printStackTrace();
             }

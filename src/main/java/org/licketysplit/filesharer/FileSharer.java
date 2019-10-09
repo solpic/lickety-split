@@ -11,15 +11,7 @@ public class FileSharer {
     public FileSharer() {}
 
     public void upSync(SecureSocket socket, ShareableFile file) throws Exception {
-//        FileInputStream fis = new FileInputStream(file);
-//        byte[] buffer = new byte[4096];
-//        socket.writeInt((int) file.length());
-//
-//        while (fis.read(buffer) > 0) {
-//            socket.sendData(buffer);
-//        }
-//
-//        fis.close();
+
     }
 
     public void downSync(SecureSocket socket) throws Exception {

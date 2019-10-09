@@ -7,7 +7,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 
 
-public class FileRequestResponseMessage extends Message {
+public class ChunkDownloadResponse extends Message {
     public byte[] data;
 
     @Override
@@ -20,9 +20,9 @@ public class FileRequestResponseMessage extends Message {
         this.data = data;
     }
 
-    public FileRequestResponseMessage() {}
+    public ChunkDownloadResponse() {}
 
-    public FileRequestResponseMessage(String fileName){
+    public ChunkDownloadResponse(String fileName){
         File file = new File(fileName);
         try {
             FileInputStream fis = new FileInputStream(file);
