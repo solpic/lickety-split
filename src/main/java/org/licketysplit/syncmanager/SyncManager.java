@@ -19,6 +19,10 @@ public class SyncManager {
     }
 
     public void updateFile(String fileName){
+        //When a user updates a file
+        //updateManifest
+        //update file in directory
+
         PeerManager pm = env.getPm();
         ConcurrentHashMap<UserInfo, SecureSocket> peers = pm.getPeers();
         peers.forEach((key, value) -> {

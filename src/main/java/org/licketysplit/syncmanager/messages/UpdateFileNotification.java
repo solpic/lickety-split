@@ -36,10 +36,10 @@ public class UpdateFileNotification extends Message {
             UpdateFileNotification tstMsg = (UpdateFileNotification) m.getMessage();
             String updatedFileName = tstMsg.fileName;
             Environment env = m.getEnv();
-            FileSharer fS = env.getFs();
+            FileSharer fS = env.getFS();
             SecureSocket conn = m.getConn();
             try {
-                fS.download(m.getConn(), updatedFileName);
+                fS.download(conn, updatedFileName);
             }catch (Exception e) {
                 e.printStackTrace();
             }
