@@ -6,8 +6,7 @@ import org.licketysplit.securesocket.messages.MessageHandler;
 import org.licketysplit.securesocket.messages.ReceivedMessage;
 
 public class ChunkDownloadRequest extends Message {
-    public int chunkIntervalStart; // include start chunk
-    public int chunkIntervalEnd;  // end of interval, do not include end chunk
+    public String fileName;
 
     @Override
     public byte[] toBytes() {
@@ -22,20 +21,8 @@ public class ChunkDownloadRequest extends Message {
 
     public ChunkDownloadRequest() {}
 
-    public ChunkDownloadRequest(int chunkIntervalStart, int chunkIntervalEnd){
+    public ChunkDownloadRequest(String fileName){
         this.fileName = fileName;
-    }
-
-    public static class FileRequestResponseHandler implements MessageHandler {
-        @Override
-        public void handle(ReceivedMessage m) {
-            ChunkDownloadResponse decodedMessage = (ChunkDownloadResponse) m.getMessage();
-            try {
-                System.out.println(decodedMessage.data);
-            }catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
     }
 
     @DefaultHandler(type = ChunkDownloadRequest.class)
@@ -45,7 +32,7 @@ public class ChunkDownloadRequest extends Message {
             ChunkDownloadRequest tstMsg = (ChunkDownloadRequest) m.getMessage();
             String requestedFileName = tstMsg.fileName;
             try {
-                m.respond(new ChunkDownloadResponse(requestedFileName), new FileRequestResponseHandler());
+                m.respond(new ChunkDownloadResponse(requestedFileName), null);
             }catch (Exception e) {
                 e.printStackTrace();
             }

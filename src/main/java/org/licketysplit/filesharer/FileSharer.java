@@ -1,6 +1,10 @@
 package org.licketysplit.filesharer;
 
+import org.licketysplit.filesharer.messages.ChunkDownloadRequest;
+import org.licketysplit.filesharer.messages.ChunkDownloadResponse;
 import org.licketysplit.securesocket.*;
+import org.licketysplit.securesocket.messages.MessageHandler;
+import org.licketysplit.securesocket.messages.ReceivedMessage;
 
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -35,5 +39,22 @@ public class FileSharer {
 //        fos.close();
     }
 
+    public static class ChunkDownloadResponseHandler implements MessageHandler {
+        @Override
+        public void handle(ReceivedMessage m) {
+            ChunkDownloadResponse decodedMessage = (ChunkDownloadResponse) m.getMessage();
+            try {
+                FileOutputStream fos = new FileOutputStream("/Users/williamnewman/Testing/t2/tester.txt");
+                fos.write(decodedMessage.data, 0, decodedMessage.data.length);
+                fos.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public void download(SecureSocket socket, String fileName) throws Exception {
+        socket.sendFirstMessage(new ChunkDownloadRequest(fileName), new ChunkDownloadResponseHandler());
+    }
 
 }

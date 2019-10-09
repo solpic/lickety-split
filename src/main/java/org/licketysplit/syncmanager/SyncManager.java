@@ -4,6 +4,7 @@ import org.licketysplit.env.Environment;
 import org.licketysplit.securesocket.SecureSocket;
 import org.licketysplit.securesocket.peers.PeerManager;
 import org.licketysplit.securesocket.peers.UserInfo;
+import org.licketysplit.syncmanager.messages.UpdateFileNotification;
 
 import java.io.File;
 import java.util.concurrent.ConcurrentHashMap;
@@ -18,11 +19,14 @@ public class SyncManager {
     }
 
     public void updateFile(String fileName){
-        File file = new File(fileName);
         PeerManager pm = env.getPm();
         ConcurrentHashMap<UserInfo, SecureSocket> peers = pm.getPeers();
         peers.forEach((key, value) -> {
-            value.sendMessage(new UpdateFileNotification(file), null);
+            try {
+                value.sendFirstMessage(new UpdateFileNotification(fileName), null);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         });
     }
 
