@@ -22,8 +22,8 @@ public class ChunkDownloadResponse extends Message {
 
     public ChunkDownloadResponse() {}
 
-    public ChunkDownloadResponse(String fileName){
-        File file = new File(fileName);
+    public ChunkDownloadResponse(String fileLocation, String fileName){
+        File file = new File(fileLocation + fileName);
         try {
             FileInputStream fis = new FileInputStream(file);
             byte[] buffer = new byte[(int)file.length()]; // quick workaround
