@@ -18,7 +18,6 @@ public class FileSharerMessagingTest {
         @Override
         public void handle(ReceivedMessage m) {
             FileRequestResponseMessage decodedMessage = (FileRequestResponseMessage) m.getMessage();
-            System.out.println(decodedMessage.data.length);
             try {
                  FileOutputStream fos = new FileOutputStream("/Users/williamnewman/Testing/t2/tester.txt");
                  fos.write(decodedMessage.data, 0, decodedMessage.data.length);

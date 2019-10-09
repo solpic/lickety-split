@@ -6,30 +6,29 @@ import org.licketysplit.securesocket.messages.MessageHandler;
 import org.licketysplit.securesocket.messages.ReceivedMessage;
 
 public class FileRequestMessage extends Message {
-    public String data;
+    public String fileName;
 
     @Override
     public byte[] toBytes() {
-        return data.getBytes();
+        return fileName.getBytes();
     }
 
     @Override
     public void fromBytes(byte[] data) {
-        this.data = new String(data);
+        this.fileName = new String(data);
     }
 
 
     public FileRequestMessage() {}
 
     public FileRequestMessage(String fileName){
-        this.data = fileName;
+        this.fileName = fileName;
     }
 
     public static class FileRequestResponseHandler implements MessageHandler {
         @Override
         public void handle(ReceivedMessage m) {
             FileRequestResponseMessage decodedMessage = (FileRequestResponseMessage) m.getMessage();
-
             try {
                 System.out.println(decodedMessage.data);
             }catch (Exception e) {
@@ -43,7 +42,7 @@ public class FileRequestMessage extends Message {
         @Override
         public void handle(ReceivedMessage m) {
             FileRequestMessage tstMsg = (FileRequestMessage) m.getMessage();
-            String requestedFileName = tstMsg.data;
+            String requestedFileName = tstMsg.fileName;
             try {
                 m.respond(new FileRequestResponseMessage(requestedFileName), new FileRequestResponseHandler());
             }catch (Exception e) {
