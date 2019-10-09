@@ -1,10 +1,13 @@
 package org.licketysplit.syncmanager;
 
+import java.io.File;
+
 public class SyncManager {
 
-    public void downloadFile(String filename){
-        //Call FileSharer
-        //When done update manifest and status of file
+    public void updateFile(String fileName){
+        File file = new File(fileName);
+        //get list of peers
+        //for each peer send update notification
     }
 
 
