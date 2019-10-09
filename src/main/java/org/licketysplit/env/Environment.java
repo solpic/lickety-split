@@ -1,7 +1,7 @@
 package org.licketysplit.env;
 
 import org.licketysplit.securesocket.peers.PeerManager;
-import org.licketysplit.securesocket.UserInfo;
+import org.licketysplit.securesocket.peers.UserInfo;
 
 public class Environment {
     public PeerManager getPm() {

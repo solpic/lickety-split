@@ -48,8 +48,11 @@ public class EnvLogger {
     }
 
     public void log(Level lvl, String msg) {
-
         logger.log(lvl, username+": "+msg);
+    }
+
+    public void log(Level lvl, String msg, Throwable thrown) {
+        logger.log(lvl, username+": "+msg, thrown);
     }
 
 

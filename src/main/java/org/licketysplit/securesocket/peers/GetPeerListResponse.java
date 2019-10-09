@@ -1,19 +1,19 @@
 package org.licketysplit.securesocket.peers;
 
+import org.licketysplit.securesocket.messages.JSONMessage;
 import org.licketysplit.securesocket.messages.Message;
 
 import java.util.List;
 
-public class GetPeerListResponse extends Message {
+public class GetPeerListResponse extends JSONMessage {
     List<PeerManager.PeerAddress> peerList;
-    @Override
-    public byte[] toBytes() {
-        return new byte[0];
+
+    public List<PeerManager.PeerAddress> getPeerList() {
+        return peerList;
     }
 
-    @Override
-    public void fromBytes(byte[] data) {
-
+    public void setPeerList(List<PeerManager.PeerAddress> peerList) {
+        this.peerList = peerList;
     }
 
     public GetPeerListResponse(List<PeerManager.PeerAddress> peers) {
