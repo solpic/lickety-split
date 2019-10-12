@@ -44,7 +44,7 @@ public class ChunkAvailabilityRequest extends Message {
             ChunkAvailabilityRequest tstMsg = (ChunkAvailabilityRequest) m.getMessage();
             String requestedFileName = tstMsg.fileName;
             try {
-                m.respond(new ChunkDownloadResponse(requestedFileName), new FileRequestResponseHandler());
+                m.respond(new ChunkAvailabilityRequest(requestedFileName), new FileRequestResponseHandler());
             }catch (Exception e) {
                 e.printStackTrace();
             }
