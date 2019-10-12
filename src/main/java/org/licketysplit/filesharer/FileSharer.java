@@ -1,11 +1,13 @@
 package org.licketysplit.filesharer;
 
+import org.json.JSONObject;
 import org.licketysplit.env.Environment;
 import org.licketysplit.filesharer.messages.ChunkDownloadRequest;
 import org.licketysplit.filesharer.messages.ChunkDownloadResponse;
 import org.licketysplit.securesocket.*;
 import org.licketysplit.securesocket.messages.MessageHandler;
 import org.licketysplit.securesocket.messages.ReceivedMessage;
+import org.licketysplit.syncmanager.FileInfo;
 import org.licketysplit.syncmanager.FileManager;
 
 import java.io.FileInputStream;
@@ -20,25 +22,8 @@ public class FileSharer {
 
     }
 
-    public void downSync(SecureSocket socket) throws Exception {
-//        FileOutputStream fos = new FileOutputStream("received2testfile.txt");
-//        byte[] buffer = new byte[4096];
-//
-//        int fileSize = -1;
-//        while(fileSize < 0){
-//            fileSize = socket.readInt();
-//        }
-//
-//        int read = 0;
-//        int totalRead = 0;
-//        int remaining = fileSize;
-//        while((read = socket.receiveData(buffer, 0, Math.min(buffer.length, remaining))) > 0) {
-//            totalRead += read;
-//            remaining -= read;
-//            fos.write(buffer, 0, read);
-//        }
-//
-//        fos.close();
+    public void downSync(SecureSocket socket, JSONObject fileInfo) throws Exception {
+
     }
 
     public static class ChunkDownloadResponseHandler implements MessageHandler {

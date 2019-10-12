@@ -1,5 +1,7 @@
 package org.licketysplit.syncmanager;
 
+import org.json.JSONObject;
+
 import java.io.File;
 import java.util.Date;
 
@@ -14,11 +16,16 @@ public class FileInfo {
         this.timeStamp = timeStamp;
     }
 
-    public FileInfo(File file) {
-        Date date = new Date();
+    public FileInfo(File file, long timeStamp) { // For when you're updating or adding a new file
         this.name = file.getName();
         this.length = file.length();
-        this.timeStamp = date.getTime();
+        this.timeStamp = timeStamp;
+    }
+
+    public FileInfo(JSONObject fileInfo) {
+        this.name = fileInfo.getString("name");
+        this.length = fileInfo.getLong("length");
+        this.timeStamp = fileInfo.getLong("timestamp");
     }
 
     public String toString() {

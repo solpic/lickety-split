@@ -7,40 +7,51 @@ import org.licketysplit.securesocket.messages.DefaultHandler;
 import org.licketysplit.securesocket.messages.Message;
 import org.licketysplit.securesocket.messages.MessageHandler;
 import org.licketysplit.securesocket.messages.ReceivedMessage;
+import org.json.JSONObject;
+import org.licketysplit.syncmanager.FileInfo;
+import org.licketysplit.syncmanager.FileManager;
+
+import java.io.IOException;
 
 public class UpdateFileNotification extends Message {
 
-    public String fileName;
+    public JSONObject fileInfo;
 
     @Override
     public byte[] toBytes() {
-        return fileName.getBytes();
+        return fileInfo.toString().getBytes();
     }
 
     @Override
     public void fromBytes(byte[] data) {
-        this.fileName = new String(data);
+        this.fileInfo = new JSONObject(data.toString());
     }
 
 
     public UpdateFileNotification() {}
 
-    public UpdateFileNotification(String fileName){
-        this.fileName = fileName;
+    public UpdateFileNotification(JSONObject fileInfo){
+        this.fileInfo = fileInfo;
     }
 
     @DefaultHandler(type = UpdateFileNotification.class)
     public static class UpdateFileRequestHandler implements MessageHandler {
         @Override
         public void handle(ReceivedMessage m) {
-            UpdateFileNotification tstMsg = (UpdateFileNotification) m.getMessage();
-            String updatedFileName = tstMsg.fileName;
+            UpdateFileNotification updateFileNotification = (UpdateFileNotification) m.getMessage();
+            JSONObject fileInfo = updateFileNotification.fileInfo;
             Environment env = m.getEnv();
             FileSharer fS = env.getFS();
             SecureSocket conn = m.getConn();
+            FileManager fm = env.getFM();
             try {
-                fS.download(conn, updatedFileName);
-            }catch (Exception e) {
+                fm.up(new FileInfo(fileInfo)); //
+                try {
+                    fS.download(conn, fileInfo.getString("fileName"));
+                }catch (Exception e) {
+                    e.printStackTrace();
+                }
+            } catch(IOException e){
                 e.printStackTrace();
             }
         }

@@ -9,6 +9,7 @@ import org.json.JSONObject;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Date;
 
 public class FileManager {
 
@@ -40,8 +41,14 @@ public class FileManager {
     }
 
     private void initializeManifest() {
+        //Create manifest and initialize with empty array
         try {
-            new File(this.getConfigsPath(".manifest.txt")).createNewFile();
+            File manifest = new File(this.getConfigsPath(".manifest.txt"));
+            manifest.createNewFile();
+            JsonToFile writer = new JsonToFile(manifest);
+            JSONArray arr = new JSONArray("[]" );
+            writer.writeJSONArray(arr);
+
         } catch(IOException e){
             e.printStackTrace();
         }
@@ -79,47 +86,49 @@ public class FileManager {
     public void addFile(String fileLocation){
         File source = new File(fileLocation);
         File dest = new File(this.getSharedDirectoryPath() + source.getName());
-        File manifest = new File(this.getConfigsPath(".manifest.txt"));
-
         try {
-            JsonToFile writer = new JsonToFile(manifest);
-            FileInfo info = new FileInfo(source);
-            if(manifest.length() == 0) { //If manifest not yet created
-                JSONArray arr = new JSONArray("[" + info.toString() + "]" );
-                writer.writeJSONArray(arr);
-                this.addFileHelper(source, dest);
-            } else {
-                JSONArray arr = writer.getJSONArray();
-                arr.put(new JSONObject(info.toString()));
-                writer.writeJSONArray(arr);
-                this.addFileHelper(source, dest);
-            }
+            FileInfo info = new FileInfo(source, new Date().getTime());
+            this.addFileToManifest(info);
+            this.addFileToFolder(source, dest);
         } catch (IOException e) {
             e.printStackTrace();
         }
 
     }
 
-    private void addFileHelper(File source, File dest) throws IOException {
+    public void addFileToManifest(FileInfo fileInfo) throws IOException {
+        File manifest = new File(this.getConfigsPath(".manifest.txt"));
+        JsonToFile writer = new JsonToFile(manifest);
+        JSONArray arr = writer.getJSONArray();
+        arr.put(new JSONObject(fileInfo.toString()));
+        writer.writeJSONArray(arr);
+    }
+
+    private void addFileToFolder(File source, File dest) throws IOException {
         FileUtils.copyFile(source, dest);
     }
 
-    public void UpdateFileInManifest(String fileNameWithPath){
+    //Updates file in manifest and in folder
+    public void updateFile(String fileNameWithPath){
         Path path = Paths.get(fileNameWithPath);
-        File manifest = new File(this.getConfigsPath(".manifest.txt"));
         File newFile = new File(path.toString());
         File oldFile = new File(this.getSharedDirectoryPath() + path.getFileName());
+        FileInfo info = new FileInfo(newFile, new Date().getTime());
         try {
-            JsonToFile writer = new JsonToFile(manifest);
-            FileInfo info = new FileInfo(newFile);
-            JSONArray arr = writer.getJSONArray();
-            arr.put(new JSONObject(info.toString()));
-            writer.writeJSONArray(arr);
-            this.addFileHelper(newFile, oldFile); // Hopefully this works...
+
+            this.addFileToFolder(newFile, oldFile); // Hopefully this works...
         } catch (IOException e) {
             e.printStackTrace();
         }
-
     }
 
+    public void updateFileInManifest(FileInfo info){
+        File manifest = new File(this.getConfigsPath(".manifest.txt"));
+        JsonToFile writer = new JsonToFile(manifest);
+        JSONArray arr = writer.getJSONArray();
+        arr.
+        arr.put(new JSONObject(info.toString()));
+        writer.writeJSONArray(arr);
+
+    }
 }
