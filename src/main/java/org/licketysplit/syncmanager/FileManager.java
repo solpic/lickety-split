@@ -16,16 +16,14 @@ public class FileManager {
 
     //INITIALIZATION
 
-    public String initializeFiles(String directoryLocation, String username){
+    public void initializeFiles(String directoryLocation, String username){
         Path path = Paths.get(System.getProperty("user.home"), "LicketySplit");
         boolean directoryCreated = new File(path.toString()).mkdirs();
-//        if(!directoryCreated) { // If directory created then don't initialize, mostly for testing right now
-//            return "";
-//        }
+        if(!directoryCreated) { // If directory created then don't initialize, mostly for testing right now
+            return;
+        }
         this.initializeConfigs(directoryLocation, username);
         this.initializeManifest();
-
-        return "hello";
     }
 
     private void initializeConfigs(String directoryLocation, String username) {
@@ -106,7 +104,21 @@ public class FileManager {
         FileUtils.copyFile(source, dest);
     }
 
-    public static void UpdateFileInManifest(String fileName){
+    public void UpdateFileInManifest(String fileNameWithPath){
+        Path path = Paths.get(fileNameWithPath);
+        File manifest = new File(this.getConfigsPath(".manifest.txt"));
+        File newFile = new File(path.toString());
+        File oldFile = new File(this.getSharedDirectoryPath() + path.getFileName());
+        try {
+            JsonToFile writer = new JsonToFile(manifest);
+            FileInfo info = new FileInfo(newFile);
+            JSONArray arr = writer.getJSONArray();
+            arr.put(new JSONObject(info.toString()));
+            writer.writeJSONArray(arr);
+            this.addFileHelper(newFile, oldFile); // Hopefully this works...
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
     }
 
