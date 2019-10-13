@@ -122,13 +122,29 @@ public class FileManager {
         }
     }
 
-    public void updateFileInManifest(FileInfo info){
+    public void updateFileInManifest(FileInfo info) throws IOException {
         File manifest = new File(this.getConfigsPath(".manifest.txt"));
         JsonToFile writer = new JsonToFile(manifest);
-        JSONArray arr = writer.getJSONArray();
-        arr.
-        arr.put(new JSONObject(info.toString()));
+        JSONArray arr = this.replace(info, writer.getJSONArray());
         writer.writeJSONArray(arr);
+    }
 
+    //replace old fileInfo with new fileInfo (info)
+    private JSONArray replace(FileInfo info, JSONArray arr){
+        JSONArray newArr = new JSONArray();
+        int len = arr.length();
+        if (arr != null) {
+            for (int i=0;i<len;i++)
+            {
+                //Excluding the item at position
+                if (new JSONObject(arr.get(i)).getString("name") != info.getName())
+                {
+                    newArr.put(new JSONObject(arr.get(i)));
+                } else {
+                    newArr.put(new JSONObject(info));
+                }
+            }
+        }
+        return newArr;
     }
 }

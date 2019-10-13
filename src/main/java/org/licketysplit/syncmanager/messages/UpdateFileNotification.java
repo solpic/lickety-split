@@ -45,10 +45,10 @@ public class UpdateFileNotification extends Message {
             SecureSocket conn = m.getConn();
             FileManager fm = env.getFM();
             try {
-                fm.up(new FileInfo(fileInfo)); //
+                fm.updateFileInManifest(new FileInfo(fileInfo));
                 try {
                     fS.download(conn, fileInfo.getString("fileName"));
-                }catch (Exception e) {
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
             } catch(IOException e){
