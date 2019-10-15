@@ -38,6 +38,7 @@ public class UpdateFileNotification extends JSONMessage {
             FileSharer fS = env.getFS();
             SecureSocket conn = m.getConn();
             FileManager fm = env.getFM();
+            env.getLogger().log(Level.INFO, "updating file: " + fileInfo.getName());
             try {
                  fm.updateFileInManifest(fileInfo);
                 try {

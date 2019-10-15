@@ -72,8 +72,9 @@ public class FileUpdateTest{
         String configs = "configs1";
         SyncManager sm = new SyncManager();
         initialize(env, fs, fm, pm, sm, directory, configs);
-        // sm.updateFile(System.getProperty("user.home") + "/tester2.txt");
         pm.listenInNewThread();
+        Thread.sleep(3000);
+        sm.updateFile(System.getProperty("user.home") + "/tester2.txt");
         while(true){}
 
     }
@@ -92,6 +93,7 @@ public class FileUpdateTest{
         sm.setEnv(env);
         fm.initializeFiles("default");
         fm.addFile(Paths.get(System.getProperty("user.home"), "TestResources", "tester.txt").toString());
+        fm.addFile(Paths.get(System.getProperty("user.home"), "TestResources", "tester2.txt").toString());
     }
 
     public void deleteFilesInFolder(String folder){

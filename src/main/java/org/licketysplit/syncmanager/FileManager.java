@@ -149,16 +149,15 @@ public class FileManager {
     private JSONArray replace(FileInfo info, JSONArray arr){
         JSONArray newArr = new JSONArray();
         int len = arr.length();
-        System.out.println(len);
         if (arr != null) {
             for (int i=0;i<len;i++)
             {
-                //Excluding the item at position
-                if (new JSONObject(arr.get(i).toString()).get("name") != info.getName())
+                //If names are equal then replace with new file info
+                if (new JSONObject(arr.get(i).toString()).getString("name").equals(info.getName()))
                 {
-                    newArr.put(new JSONObject(arr.get(i).toString()));
-                } else {
                     newArr.put(new JSONObject(info));
+                } else {
+                    newArr.put(new JSONObject(arr.get(i).toString()));
                 }
             }
         }

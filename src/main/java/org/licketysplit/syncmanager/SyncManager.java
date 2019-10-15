@@ -30,6 +30,7 @@ public class SyncManager {
         FileManager fm = env.getFM();
         fm.updateFile(fileNameWithPath);
         PeerManager pm = env.getPm();
+        this.env.getLogger().log(Level.INFO, "SENDING UPDATE: " + fileInfo.getName());
         ConcurrentHashMap<UserInfo, SecureSocket> peers = pm.getPeers();
         for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
             peer.getValue().sendFirstMessage(new UpdateFileNotification(fileInfo), null);
