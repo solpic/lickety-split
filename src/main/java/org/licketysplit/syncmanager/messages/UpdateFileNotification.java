@@ -3,34 +3,28 @@ package org.licketysplit.syncmanager.messages;
 import org.licketysplit.env.Environment;
 import org.licketysplit.filesharer.FileSharer;
 import org.licketysplit.securesocket.SecureSocket;
-import org.licketysplit.securesocket.messages.DefaultHandler;
-import org.licketysplit.securesocket.messages.Message;
-import org.licketysplit.securesocket.messages.MessageHandler;
-import org.licketysplit.securesocket.messages.ReceivedMessage;
+import org.licketysplit.securesocket.messages.*;
 import org.json.JSONObject;
 import org.licketysplit.syncmanager.FileInfo;
 import org.licketysplit.syncmanager.FileManager;
 
 import java.io.IOException;
+import java.util.logging.Level;
 
-public class UpdateFileNotification extends Message {
+public class UpdateFileNotification extends JSONMessage {
+    private FileInfo fileInfo;
 
-    public JSONObject fileInfo;
-
-    @Override
-    public byte[] toBytes() {
-        return fileInfo.toString().getBytes();
+    public FileInfo getFileInfo() {
+        return fileInfo;
     }
 
-    @Override
-    public void fromBytes(byte[] data) {
-        this.fileInfo = new JSONObject(data.toString());
+    public void setFileInfo(FileInfo fileInfo) {
+        this.fileInfo = fileInfo;
     }
-
 
     public UpdateFileNotification() {}
 
-    public UpdateFileNotification(JSONObject fileInfo){
+    public UpdateFileNotification(FileInfo fileInfo){
         this.fileInfo = fileInfo;
     }
 
@@ -38,16 +32,16 @@ public class UpdateFileNotification extends Message {
     public static class UpdateFileRequestHandler implements MessageHandler {
         @Override
         public void handle(ReceivedMessage m) {
-            UpdateFileNotification updateFileNotification = (UpdateFileNotification) m.getMessage();
-            JSONObject fileInfo = updateFileNotification.fileInfo;
+            UpdateFileNotification updateFileNotification = m.getMessage();
+            FileInfo fileInfo = updateFileNotification.getFileInfo();
             Environment env = m.getEnv();
             FileSharer fS = env.getFS();
             SecureSocket conn = m.getConn();
             FileManager fm = env.getFM();
             try {
-                fm.updateFileInManifest(new FileInfo(fileInfo));
+                 fm.updateFileInManifest(fileInfo);
                 try {
-                    fS.download(conn, fileInfo.getString("fileName"));
+                    fS.download(conn, fileInfo.getName());
                 } catch (Exception e) {
                     e.printStackTrace();
                 }

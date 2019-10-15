@@ -15,8 +15,13 @@ import java.io.FileOutputStream;
 
 public class FileSharer {
     private SecureSocket client;
+    private Environment env;
 
     public FileSharer() {}
+
+    public void setEnv(Environment env){
+        this.env = env;
+    }
 
     public void upSync(SecureSocket socket, ShareableFile file) throws Exception {
 
@@ -27,14 +32,19 @@ public class FileSharer {
     }
 
     public static class ChunkDownloadResponseHandler implements MessageHandler {
+        public String fileName;
+
+        public ChunkDownloadResponseHandler(String fileName){
+            this.fileName = fileName;
+        }
+
         @Override
         public void handle(ReceivedMessage m) {
             ChunkDownloadResponse decodedMessage = (ChunkDownloadResponse) m.getMessage();
             try {
                 Environment env = m.getEnv();
                 FileManager fM = env.getFM();
-                String sharedDirectoryPath = fM.getSharedDirectoryPath();
-                FileOutputStream fos = new FileOutputStream(sharedDirectoryPath + "test2.txt");
+                FileOutputStream fos = new FileOutputStream(env.getDirectory(this.fileName));
                 fos.write(decodedMessage.data, 0, decodedMessage.data.length);
                 fos.close();
             } catch (Exception e) {
@@ -44,7 +54,7 @@ public class FileSharer {
     }
 
     public void download(SecureSocket socket, String fileName) throws Exception {
-        socket.sendFirstMessage(new ChunkDownloadRequest(fileName), new ChunkDownloadResponseHandler());
+        socket.sendFirstMessage(new ChunkDownloadRequest(fileName), new ChunkDownloadResponseHandler(fileName));
     }
 
 }

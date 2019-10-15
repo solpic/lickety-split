@@ -4,22 +4,17 @@ package org.licketysplit.syncmanager;
 
 public class ConfigsInfo {
     private String username;
-    private String sharedDirectory;
 
-    public ConfigsInfo(String username, String sharedDirectory){
+    public ConfigsInfo(String username){
         this.username = username;
-        this.sharedDirectory = sharedDirectory;
     }
 
     public String toString() {
-        return "{\"username\": \"" + this.username + "\", \"sharedDirectory\": \"" + this.sharedDirectory + "\"}";
+        return "{\"username\": \"" + this.username + "\"}";
     }
 
     public String getUsername() {
         return this.username;
     }
 
-    public String getSharedDirectory() {
-        return this.sharedDirectory;
-    }
 }

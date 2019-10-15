@@ -82,6 +82,16 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         SecureSocket.listen(this.env.getUserInfo().getServer().getPort(), this::onConnect, env);
     }
 
+    public void listenInNewThread() throws Exception {
+        new Thread(() -> {
+            try{
+                listen();
+            } catch(Exception e){
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
     public void initialize(PeerAddress initialPeer) throws Exception {
         addPeer(initialPeer);
     }

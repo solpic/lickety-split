@@ -1,14 +1,42 @@
 package org.licketysplit.syncmanager;
 
 import org.json.JSONObject;
+import org.licketysplit.securesocket.messages.JSONMessage;
 
 import java.io.File;
 import java.util.Date;
 
 public class FileInfo {
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public long getLength() {
+        return length;
+    }
+
+    public void setLength(long length) {
+        this.length = length;
+    }
+
+    public long getTimeStamp() {
+        return timeStamp;
+    }
+
+    public void setTimeStamp(long timeStamp) {
+        this.timeStamp = timeStamp;
+    }
+
     public String name;
     public long length;
     public long timeStamp;
+
+    public FileInfo(){}
 
     public FileInfo(String name,long length, long timeStamp) {
         this.name = name;
@@ -27,20 +55,4 @@ public class FileInfo {
         this.length = fileInfo.getLong("length");
         this.timeStamp = fileInfo.getLong("timestamp");
     }
-
-    public String toString() {
-        return "{\"name\": \"" + this.name+ "\", \"length\": \"" + this.length + "\"," + "\"" + this.timeStamp + "\"}";
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public long getLength() {
-        return length;
-    }
-
-    public long getTimeStamp() { return timeStamp; }
-
-
 }

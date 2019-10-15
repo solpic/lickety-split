@@ -35,9 +35,9 @@ public class ChunkDownloadRequest extends Message {
             String requestedFileName = tstMsg.fileName;
             Environment env = m.getEnv();
             FileManager fM = env.getFM();
-            String requestedFileLocation = fM.getSharedDirectoryPath();
+            String requestedFileLocation = env.getDirectory(requestedFileName);
             try {
-                m.respond(new ChunkDownloadResponse(requestedFileLocation, requestedFileName), null);
+                m.respond(new ChunkDownloadResponse(requestedFileLocation), null);
             }catch (Exception e) {
                 e.printStackTrace();
             }

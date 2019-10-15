@@ -16,22 +16,8 @@ public class JsonToFile {
         this.file = file;
     }
 
-    public JSONArray getJSONArray() throws IOException {
-        return  new JSONArray(FileUtils.readFileToString(file, StandardCharsets.UTF_8));
-    }
-
     public JSONObject getJSONObject() throws IOException {
         return new JSONObject(FileUtils.readFileToString(file, StandardCharsets.UTF_8));
-    }
-
-    public void writeJSONArray(JSONArray arr) {
-        try {
-            FileWriter writer = new FileWriter(file);
-            writer.write(arr.toString());
-            writer.flush();
-        } catch( IOException e){
-            e.printStackTrace();
-        }
     }
 
     public void writeJSONObject(JSONObject obj) {

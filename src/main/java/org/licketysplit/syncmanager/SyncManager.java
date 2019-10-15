@@ -9,7 +9,9 @@ import org.licketysplit.syncmanager.messages.UpdateFileNotification;
 
 import java.io.File;
 import java.util.Date;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 
 public class SyncManager {
     private Environment env;
@@ -21,7 +23,7 @@ public class SyncManager {
     }
 
     //When a user updates a file they own
-    public void updateFile(String fileNameWithPath){
+    public void updateFile(String fileNameWithPath) throws Exception {
         File file = new File(fileNameWithPath);
         FileInfo fileInfo = new FileInfo(file, new Date().getTime());
 
@@ -29,13 +31,8 @@ public class SyncManager {
         fm.updateFile(fileNameWithPath);
         PeerManager pm = env.getPm();
         ConcurrentHashMap<UserInfo, SecureSocket> peers = pm.getPeers();
-
-        peers.forEach((key, value) -> {
-            try {
-                value.sendFirstMessage(new UpdateFileNotification(new JSONObject(fileInfo.toString())), null);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
+        for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
+            peer.getValue().sendFirstMessage(new UpdateFileNotification(fileInfo), null);
+        }
     }
 }

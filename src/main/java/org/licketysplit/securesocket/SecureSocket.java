@@ -137,10 +137,10 @@ public class SecureSocket {
 
                     byte[] payload = new byte[size];
                     in.read(payload, 0, size);
-                    /*log.log(Level.INFO,
+                    log.log(Level.INFO,
                             String.format("Received message of size: %d, MyID: %d, ResponseID: %d, classcode: %d, name: %s",
                             size, myId, responseId, classCode, messageCodes[classCode].getName()));
-                    */
+
 
                     Message msg;// = Message.factory(classCode, payload);
                     msg = (Message)messageCodes[classCode].getConstructor().newInstance();
@@ -176,8 +176,8 @@ public class SecureSocket {
                     Integer classCode = getOpCode(nextMessage.msg);
                     byte[] payload = nextMessage.msg.toBytes();
 
-                    //log.log(Level.INFO, String.format("Sending message with ID: %d, ResponseID: %d, Code: %d, Class: %s, Size: %d",
-                    //        id, nextMessage.respondingToMessage, classCode, messageCodes[classCode].getName(), payload.length));
+                    log.log(Level.INFO, String.format("Sending message with ID: %d, ResponseID: %d, Code: %d, Class: %s, Size: %d",
+                            id, nextMessage.respondingToMessage, classCode, messageCodes[classCode].getName(), payload.length));
 
                     out.writeInt(id);
                     out.writeInt(nextMessage.respondingToMessage);
