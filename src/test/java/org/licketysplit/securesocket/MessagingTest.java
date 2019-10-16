@@ -2,6 +2,8 @@ package org.licketysplit.securesocket;
 
 import org.junit.Test;
 import org.licketysplit.env.Environment;
+import org.licketysplit.securesocket.encryption.AsymmetricCipher;
+import org.licketysplit.securesocket.encryption.SymmetricCipher;
 import org.licketysplit.securesocket.messages.DefaultHandler;
 import org.licketysplit.securesocket.messages.Message;
 import org.licketysplit.securesocket.messages.MessageHandler;
@@ -9,6 +11,10 @@ import org.licketysplit.securesocket.messages.ReceivedMessage;
 import org.licketysplit.securesocket.peers.PeerManager;
 import org.licketysplit.securesocket.peers.UserInfo;
 
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.util.Random;
 import java.util.logging.Level;
 
@@ -105,6 +111,7 @@ public class MessagingTest {
                 pm.setEnv(env);
                 env.getLogger().log(Level.INFO, "Server is: "+env.getUserInfo().getServer().getPort());
                 try {
+                    Thread.sleep(1000);
                     pm.initialize(peer);
                     pm.listen();
                     synchronized (lock) {
@@ -117,11 +124,10 @@ public class MessagingTest {
             }
         }
 
-        for(int i = 0; i<10; i++) {
+        for(int i = 0; i<1; i++) {
             ServerThread serverThread = new ServerThread();
             serverThread.start();
         }
-        Thread.sleep(1000);
 
         PeerManager pm = new PeerManager();
         Environment env = new Environment(user, pm);
@@ -131,5 +137,18 @@ public class MessagingTest {
         synchronized (lock) {
             lock.wait();
         }
+    }
+
+
+    @Test
+    public void encryptionWorks() throws Exception {
+        SymmetricCipher c = new SymmetricCipher();
+        SymmetricCipher.SymmetricKey symmetricKey = c.generateKey();
+        String plaintext = "Some plaintext";
+        byte[] encrypted = c.encrypt(plaintext.getBytes());
+
+        SymmetricCipher d = new SymmetricCipher();
+        d.setKey(symmetricKey.getKey().getEncoded(), symmetricKey.getIv());
+        System.out.println("Decrypted: "+ new String(d.decrypt(encrypted)));
     }
 }

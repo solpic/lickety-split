@@ -3,13 +3,19 @@ package org.licketysplit.securesocket.peers;
 import org.licketysplit.env.EnvLogger;
 import org.licketysplit.env.Environment;
 import org.licketysplit.securesocket.SecureSocket;
+import org.licketysplit.securesocket.encryption.AsymmetricCipher;
+import org.licketysplit.securesocket.encryption.SymmetricCipher;
 import org.licketysplit.securesocket.messages.DefaultHandler;
+import org.licketysplit.securesocket.messages.Message;
 import org.licketysplit.securesocket.messages.MessageHandler;
 import org.licketysplit.securesocket.messages.ReceivedMessage;
 import org.licketysplit.securesocket.onconnect.NewConnectionHandler;
+import org.licketysplit.securesocket.onconnect.NotifyPeersOnConnect;
 import org.licketysplit.securesocket.onconnect.SyncPeerListOnConnect;
 
+import java.security.KeyPair;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -58,6 +64,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
     void initConnectHandlers() {
         onConnectHandlers = new ArrayList<>();
         onConnectHandlers.add(new SyncPeerListOnConnect());
+        onConnectHandlers.add(new NotifyPeersOnConnect());
     }
     public void addConnectionHandler(NewConnectionHandler handler) {
         onConnectHandlers.add(handler);
@@ -82,6 +89,16 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         SecureSocket.listen(this.env.getUserInfo().getServer().getPort(), this::onConnect, env);
     }
 
+    public void listenInNewThread() throws Exception {
+        new Thread(() -> {
+            try {
+                listen();
+            }catch(Exception e) {
+
+            }
+        }).start();
+    }
+
     public void initialize(PeerAddress initialPeer) throws Exception {
         addPeer(initialPeer);
     }
@@ -99,7 +116,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
 
     public void logPeerList() {
         StringBuilder fmt = new StringBuilder();
-        fmt.append("Peer list: \n");
+        fmt.append("Peer list ("+peers.size()+" peers): \n");
         for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
             fmt.append(String.format("Username: %s\n", peer.getKey().getUsername()));
         }
@@ -135,20 +152,75 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         }
     }
 
+    public void messageAllPeers(Message m, MessageHandler handler) throws Exception {
+        for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
+            peer.getValue().sendFirstMessage(m, handler);
+        }
+    }
+
+    @DefaultHandler(type= SecurityHandshake.SendPublicKeyMessage.class)
+    public static class ReceivePublicKeyMessage implements MessageHandler {
+
+        @Override
+        public void handle(ReceivedMessage m) throws Exception {
+            m.getEnv().getLogger().log(Level.INFO, "Receiving public key, generating symmetric key and sending");
+            SecurityHandshake.SendPublicKeyMessage msg = m.getMessage();
+            AsymmetricCipher encryptor = new AsymmetricCipher();
+            encryptor.setPublicKey(msg.getKey());
+
+            SymmetricCipher symmetricCipher = new SymmetricCipher();
+            SymmetricCipher.SymmetricKey symmetricKey = symmetricCipher.generateKey();
+
+
+            byte[] encryptedKey = encryptor.encrypt(symmetricKey.getKey().getEncoded());
+            byte[] encryptedIv = encryptor.encrypt(symmetricKey.getIv());
+            m.getEnv().getLogger().log(
+                    Level.INFO, String.format("KEY: %s, IV: %s\n",
+                            Base64.getEncoder().encodeToString(symmetricKey.getKey().getEncoded()),
+                            Base64.getEncoder().encodeToString(symmetricKey.getIv())));
+            SecurityHandshake.SendSymmetricKeyMessage nMsg = new SecurityHandshake.SendSymmetricKeyMessage(encryptedKey, encryptedIv);
+            nMsg.activateEncryption();
+            m.getConn().setCipher(symmetricCipher);
+            m.respond(nMsg, null);
+        }
+    }
+
     void newConnectionHandlerClient(SecureSocket sock) throws Exception {
-        log.log(Level.INFO, "Sending handshake");
-        sock.sendFirstMessage(new UserInfo.UserIDMessage(env.getUserInfo()), (ReceivedMessage m) -> {
-            //Handler for response
-            UserInfo.UserIDMessage msg = m.getMessage();
-            //m.getEnv().getLogger().log(Level.INFO, "Receiving FINAL handshake ID from: "+msg.getUserInfo().getUsername());
-            try {
-                m.getConn().setServerInfo(msg.getUserInfo().getServer());
-                m.getEnv().getPm().confirmPeer(msg.getUserInfo(), m.getConn());
-            } catch(Exception e) {
-                m.getEnv().getLogger().log(Level.SEVERE, "Exception while handshaking");
-                e.printStackTrace();
-            }
-        });
+        log.log(Level.INFO, "Generating keypair and sending public key");
+        AsymmetricCipher decryptor = new AsymmetricCipher();
+        KeyPair keyPair = decryptor.generateKeyPair();
+        decryptor.setPrivateKey(keyPair.getPrivate());
+        sock.sendFirstMessage(new SecurityHandshake.SendPublicKeyMessage(keyPair.getPublic().getEncoded()),
+                (ReceivedMessage m) -> {
+                    log.log(Level.INFO, "Received symmetric key, starting user handshake");
+                    SecurityHandshake.SendSymmetricKeyMessage msg = m.getMessage();
+                    byte[] key = decryptor.decrypt(msg.getEncryptedKey());
+                    byte[] iv = decryptor.decrypt(msg.getEncryptedIv());
+
+                    log.log(
+                            Level.INFO, String.format("Received KEY: %s, IV: %s\n",
+                                    Base64.getEncoder().encodeToString(key),
+                                    Base64.getEncoder().encodeToString(iv)));
+
+                    SymmetricCipher symmetricCipher = new SymmetricCipher();
+                    symmetricCipher.setKey(key, iv);
+                    m.getConn().setCipher(symmetricCipher);
+                    m.getConn().activateEncryption();
+
+                    sock.sendFirstMessage(new UserInfo.UserIDMessage(env.getUserInfo()), (ReceivedMessage m3) -> {
+                        //Handler for response
+                        UserInfo.UserIDMessage userInfoMsg = m3.getMessage();
+                        //m.getEnv().getLogger().log(Level.INFO, "Receiving FINAL handshake ID from: "+msg.getUserInfo().getUsername());
+                        try {
+                            m3.getConn().setServerInfo(userInfoMsg.getUserInfo().getServer());
+                            m3.getEnv().getPm().confirmPeer(userInfoMsg.getUserInfo(), m3.getConn());
+                        } catch(Exception e) {
+                            m3.getEnv().getLogger().log(Level.SEVERE, "Exception while handshaking");
+                            e.printStackTrace();
+                        }
+                    });
+                });
+
     }
 
     public GetPeerListResponse getPeerListResponse() {

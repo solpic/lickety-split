@@ -2,6 +2,8 @@ package org.licketysplit.securesocket;
 
 import org.licketysplit.env.EnvLogger;
 import org.licketysplit.env.Environment;
+import org.licketysplit.securesocket.encryption.AsymmetricCipher;
+import org.licketysplit.securesocket.encryption.SymmetricCipher;
 import org.licketysplit.securesocket.messages.DefaultHandler;
 import org.licketysplit.securesocket.messages.Message;
 import org.licketysplit.securesocket.messages.MessageHandler;
@@ -11,9 +13,11 @@ import org.licketysplit.securesocket.peers.UserInfo;
 import org.reflections.Reflections;
 
 import java.lang.reflect.Constructor;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.net.*;
 import java.io.*;
+import java.util.Base64;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,6 +33,43 @@ public class SecureSocket {
     private UserInfo userInfo;
     private PeerManager.ServerInfo serverInfo;
 
+    private SymmetricCipher cipher;
+    private boolean useEncryption = false;
+
+    public SymmetricCipher getCipher() {
+        return cipher;
+    }
+
+    public void activateEncryption() {
+        useEncryption = true;
+    }
+
+    public void setCipher(SymmetricCipher cipher) {
+        this.cipher = cipher;
+    }
+    /*
+    private AsymmetricCipher initialEncryptor;
+    private AsymmetricCipher initialDecryptor;
+
+    public AsymmetricCipher getInitialEncryptor() {
+        return initialEncryptor;
+    }
+
+    public void setInitialEncryptor(AsymmetricCipher initialEncryptor) {
+        synchronized (this.initialEncryptor) {
+            this.initialEncryptor = initialEncryptor;
+        }
+    }
+
+    public AsymmetricCipher getInitialDecryptor() {
+        return initialDecryptor;
+    }
+
+    public void setInitialDecryptor(AsymmetricCipher initialDecryptor) {
+        synchronized (this.initialDecryptor) {
+            this.initialDecryptor = initialDecryptor;
+        }
+    }*/
 
     //<editor-fold desc="Constructor/deconstructor">
     public SecureSocket(Socket socket, DataOutputStream out, DataInputStream in, Environment env, UserInfo userInfo, PeerManager.ServerInfo server) throws Exception {
@@ -83,6 +124,10 @@ public class SecureSocket {
         }
     }
 
+
+
+
+
     public static SecureSocket connect(PeerManager.PeerAddress peer, Environment env) throws Exception {
         String ip = peer.getServerInfo().getIp();
         int port = peer.getServerInfo().getPort();
@@ -90,7 +135,7 @@ public class SecureSocket {
         Socket clientSocket = new Socket(ip, port);
         DataOutputStream output = new DataOutputStream(clientSocket.getOutputStream());
         DataInputStream input = new DataInputStream(clientSocket.getInputStream());
-        env.getLogger().log(Level.INFO,"Connecting");
+        env.getLogger().log(Level.INFO,"Connected to IP: "+ip+", port: "+port);
         return new SecureSocket(clientSocket, output, input, env, peer.getUser(), null);
     }
     //</editor-fold>
@@ -118,6 +163,7 @@ public class SecureSocket {
     private static Class[] messageCodes;
     public static Object defaultHandlersLock = new Object();
 
+    final int headersSize = 4*4;
     class SocketReader implements Runnable {
 
         @Override
@@ -126,25 +172,51 @@ public class SecureSocket {
                 try {
                     // Read message
 
-                    //ID to send back in response
-                    int responseId = in.readInt();
 
                     //ID to map to handler on this end
-                    int myId = in.readInt();
-                    int classCode = in.readInt();
-                    int size = in.readInt();
+                    Integer responseId = null;
+                    Integer myId = null;
+                    Integer classCode = null;
+                    Integer size = null;
+                    byte[] payload = null;
 
+                    Integer headersSize = in.readInt();
 
-                    byte[] payload = new byte[size];
+                    byte[] headers = new byte[headersSize];
+                    in.read(headers, 0, headersSize);
+
+                    byte[] headersFinal = null;
+                    if(useEncryption) {
+                        log.log(Level.INFO,
+                                String.format("Ciphertext: %s",
+                                Base64.getEncoder().encodeToString(headers)));
+                        headersFinal = cipher.decrypt(headers);
+                    }else{
+                        headersFinal = headers;
+                    }
+                    ByteBuffer headersBuffer = ByteBuffer.wrap(headersFinal);
+                    responseId = headersBuffer.getInt();
+                    myId = headersBuffer.getInt();
+                    classCode = headersBuffer.getInt();
+                    size = headersBuffer.getInt();
+
+                    payload = new byte[size];
                     in.read(payload, 0, size);
+
+                    byte[] payloadFinal = null;
+                    if(useEncryption) {
+                        payloadFinal = cipher.decrypt(payload);
+                    }else{
+                        payloadFinal = payload;
+                    }
                     /*log.log(Level.INFO,
                             String.format("Received message of size: %d, MyID: %d, ResponseID: %d, classcode: %d, name: %s",
                             size, myId, responseId, classCode, messageCodes[classCode].getName()));
                     */
-
+                    log.log(Level.INFO, new String(payloadFinal));
                     Message msg;// = Message.factory(classCode, payload);
                     msg = (Message)messageCodes[classCode].getConstructor().newInstance();
-                    msg.fromBytes(payload);
+                    msg.fromBytes(payloadFinal);
                     MessageHandler messageHandler;
                     if(messageHandlers.containsKey(myId)) {
                          messageHandler = messageHandlers.get(myId);
@@ -179,11 +251,31 @@ public class SecureSocket {
                     //log.log(Level.INFO, String.format("Sending message with ID: %d, ResponseID: %d, Code: %d, Class: %s, Size: %d",
                     //        id, nextMessage.respondingToMessage, classCode, messageCodes[classCode].getName(), payload.length));
 
-                    out.writeInt(id);
-                    out.writeInt(nextMessage.respondingToMessage);
-                    out.writeInt(classCode);
-                    out.writeInt(payload.length);
-                    out.write(payload);
+                    ByteBuffer headers = ByteBuffer.allocate(headersSize);
+                    headers.putInt(id);
+                    headers.putInt(nextMessage.respondingToMessage);
+                    headers.putInt(classCode);
+                    byte[] payloadBytes = null;
+
+                    if (useEncryption) {
+                        payloadBytes = cipher.encrypt(payload);
+                    }else{
+                        payloadBytes = payload;
+                    }
+                    headers.putInt(payloadBytes.length);
+                    byte[] headersBytes = null;
+                    if(useEncryption) {
+                        headersBytes = cipher.encrypt(headers.array());
+                    }else{
+                        headersBytes = headers.array();
+                    }
+                    out.writeInt(headersBytes.length);
+                    out.write(headersBytes);
+                    out.write(payloadBytes);
+
+                    if(nextMessage.msg.doesActivateEncryption()) {
+                        activateEncryption();
+                    }
                 } catch (Exception e) {
                     log.log(Level.SEVERE, "Exception during socket writer");
                     e.printStackTrace();
