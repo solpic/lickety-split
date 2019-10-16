@@ -38,11 +38,9 @@ public class FileSharer {
 
         @Override
         public void handle(ReceivedMessage m) {
-            ChunkDownloadResponse decodedMessage = (ChunkDownloadResponse) m.getMessage();
+            ChunkDownloadResponse decodedMessage = m.getMessage();
             try {
-                Environment env = m.getEnv();
-                FileManager fM = env.getFM();
-                FileOutputStream fos = new FileOutputStream(env.getDirectory(this.fileName));
+                FileOutputStream fos = new FileOutputStream(m.getEnv().getDirectory(this.fileName));
                 fos.write(decodedMessage.data, 0, decodedMessage.data.length);
                 fos.close();
             } catch (Exception e) {

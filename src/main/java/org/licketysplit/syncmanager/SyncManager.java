@@ -9,7 +9,6 @@ import org.licketysplit.syncmanager.messages.DeleteFileNotification;
 import org.licketysplit.syncmanager.messages.UpdateFileNotification;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -44,6 +43,9 @@ public class SyncManager {
 
     public void addFile(String filePath) throws Exception {
         FileInfo info = this.env.getFM().addFile(filePath);
+
+        this.env.getLogger().log(Level.INFO, "Adding File: " + info.getName());
+
         ConcurrentHashMap<UserInfo, SecureSocket> peers = this.env.getPm().getPeers();
         for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
             peer.getValue().sendFirstMessage(new AddFileNotification(info), null);
@@ -53,6 +55,9 @@ public class SyncManager {
     public void deleteFile(String fileName) throws Exception {
         FileInfo deletedFileInfo = new FileInfo(fileName, false);
         this.env.getFM().deleteFile(deletedFileInfo);
+
+        this.env.getLogger().log(Level.INFO, "Deleting File: " + deletedFileInfo.getName());
+
         ConcurrentHashMap<UserInfo, SecureSocket> peers = this.env.getPm().getPeers();
         for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
             peer.getValue().sendFirstMessage(new DeleteFileNotification(deletedFileInfo), null);
