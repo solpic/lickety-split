@@ -7,10 +7,8 @@ import org.licketysplit.filesharer.messages.ChunkDownloadResponse;
 import org.licketysplit.securesocket.*;
 import org.licketysplit.securesocket.messages.MessageHandler;
 import org.licketysplit.securesocket.messages.ReceivedMessage;
-import org.licketysplit.syncmanager.FileInfo;
 import org.licketysplit.syncmanager.FileManager;
 
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 
 public class FileSharer {
@@ -56,5 +54,6 @@ public class FileSharer {
     public void download(SecureSocket socket, String fileName) throws Exception {
         socket.sendFirstMessage(new ChunkDownloadRequest(fileName), new ChunkDownloadResponseHandler(fileName));
     }
+
 
 }

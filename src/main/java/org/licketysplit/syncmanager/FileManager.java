@@ -96,16 +96,20 @@ public class FileManager {
     }
 
     //Adds file to manifest and folder
-    public void addFile(String fileLocation){
+    public FileInfo addFile(String fileLocation){
         File source = new File(fileLocation);
         File dest = new File(this.getSharedDirectoryPath(source.getName()));
+        FileInfo info = new FileInfo(source, new Date().getTime());
         try {
-            FileInfo info = new FileInfo(source, new Date().getTime());
             this.addFileToManifest(info);
             this.addFileToFolder(source, dest);
+
+            return info;
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+        return info;
 
     }
 
@@ -140,6 +144,11 @@ public class FileManager {
         }
     }
 
+    public void deleteFile(FileInfo info) throws IOException {
+        this.deleteFileFromFolder(this.getSharedDirectoryPath(info.getName()));
+        this.updateFileInManifest(info);
+    }
+
     public void updateFileInManifest(FileInfo info) throws IOException {
         File manifest = new File(this.getConfigsPath(".manifest.txt"));
         JsonToFile writer = new JsonToFile(manifest);
@@ -148,6 +157,10 @@ public class FileManager {
         filesArray = this.replace(info, filesArray);
         files.put("files", filesArray);
         writer.writeJSONObject(files);
+    }
+
+    public void deleteFileFromFolder(String fileNameWithPath) throws IOException {
+        FileUtils.forceDelete(new File(fileNameWithPath));
     }
 
     //replace old fileInfo with new fileInfo (info)
