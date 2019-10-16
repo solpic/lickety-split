@@ -25,12 +25,15 @@ public class SyncManager {
     //When a user updates a file they own
     public void updateFile(String fileNameWithPath) throws Exception {
         File file = new File(fileNameWithPath);
-        FileInfo fileInfo = new FileInfo(file, new Date().getTime());
+        FileInfo fileInfo = new FileInfo(file, new Date().getTime()); //Create updated file info obj
 
         FileManager fm = env.getFM();
-        fm.updateFile(fileNameWithPath);
         PeerManager pm = env.getPm();
+
+        fm.updateFile(fileNameWithPath);
+
         this.env.getLogger().log(Level.INFO, "SENDING UPDATE: " + fileInfo.getName());
+
         ConcurrentHashMap<UserInfo, SecureSocket> peers = pm.getPeers();
         for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
             peer.getValue().sendFirstMessage(new UpdateFileNotification(fileInfo), null);

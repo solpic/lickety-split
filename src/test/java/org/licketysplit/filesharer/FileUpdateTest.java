@@ -113,7 +113,6 @@ public class FileUpdateTest{
 
     public void initializeFilesInFolder(String folder){
         new File(Paths.get(System.getProperty("user.home"), folder).toString()).mkdir();
-        System.out.println(Paths.get(System.getProperty("user.home"), folder).toString());
         File tester = new File(Paths.get(System.getProperty("user.home"), folder, "tester.txt").toString());
         try{
             tester.createNewFile();

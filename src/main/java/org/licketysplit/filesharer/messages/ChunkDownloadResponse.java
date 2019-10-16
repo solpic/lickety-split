@@ -1,5 +1,6 @@
 package org.licketysplit.filesharer.messages;
 
+import org.licketysplit.securesocket.messages.JSONMessage;
 import org.licketysplit.securesocket.messages.Message;
 
 import java.io.File;
@@ -7,18 +8,8 @@ import java.io.FileInputStream;
 import java.io.IOException;
 
 
-public class ChunkDownloadResponse extends Message {
+public class ChunkDownloadResponse extends JSONMessage {
     public byte[] data;
-
-    @Override
-    public byte[] toBytes() {
-        return data;
-    }
-
-    @Override
-    public void fromBytes(byte[] data) {
-        this.data = data;
-    }
 
     public ChunkDownloadResponse() {}
 

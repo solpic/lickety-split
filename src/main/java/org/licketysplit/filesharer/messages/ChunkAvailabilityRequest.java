@@ -1,23 +1,11 @@
 package org.licketysplit.filesharer.messages;
 
-import org.licketysplit.securesocket.messages.DefaultHandler;
-import org.licketysplit.securesocket.messages.Message;
-import org.licketysplit.securesocket.messages.MessageHandler;
-import org.licketysplit.securesocket.messages.ReceivedMessage;
+import org.licketysplit.env.Environment;
+import org.licketysplit.securesocket.messages.*;
+import org.licketysplit.syncmanager.FileManager;
 
-public class ChunkAvailabilityRequest extends Message {
+public class ChunkAvailabilityRequest extends JSONMessage {
     public String fileName;
-
-    @Override
-    public byte[] toBytes() {
-        return fileName.getBytes();
-    }
-
-    @Override
-    public void fromBytes(byte[] data) {
-        this.fileName = new String(data);
-    }
-
 
     public ChunkAvailabilityRequest() {}
 
@@ -25,28 +13,26 @@ public class ChunkAvailabilityRequest extends Message {
         this.fileName = fileName;
     }
 
-    public static class FileRequestResponseHandler implements MessageHandler {
-        @Override
-        public void handle(ReceivedMessage m) {
-            ChunkDownloadResponse decodedMessage = (ChunkDownloadResponse) m.getMessage();
-            try {
-                System.out.println(decodedMessage.data);
-            }catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
     @DefaultHandler(type = ChunkAvailabilityRequest.class)
-    public static class FileRequestHandler implements MessageHandler {
+    public static class ChunkAvailabilityRequestHandler implements MessageHandler {
         @Override
         public void handle(ReceivedMessage m) {
-            ChunkAvailabilityRequest tstMsg = (ChunkAvailabilityRequest) m.getMessage();
+            ChunkAvailabilityRequest tstMsg = m.getMessage();
             String requestedFileName = tstMsg.fileName;
-            try {
-                m.respond(new ChunkAvailabilityRequest(requestedFileName), new FileRequestResponseHandler());
-            }catch (Exception e) {
-                e.printStackTrace();
+            Environment env = m.getEnv();
+            FileManager fm = env.getFM();
+            if( fm.hasFile(requestedFileName)) {
+                try {
+                    m.respond(new ChunkAvailabilityResponse(true, requestedFileName), null);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            } else {
+                try {
+                    m.respond(new ChunkAvailabilityResponse(false, ""), null);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         }
     }

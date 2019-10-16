@@ -6,7 +6,6 @@ import java.io.*;
 import org.apache.commons.io.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.json.simple.parser.ParseException;
 import org.licketysplit.env.Environment;
 
 import java.nio.file.Path;
@@ -56,6 +55,12 @@ public class FileManager {
         } catch(IOException e){
             e.printStackTrace();
         }
+    }
+
+    // MISC
+
+    public boolean hasFile(String fileName){
+        return new File(this.getSharedDirectoryPath(fileName)).exists();
     }
 
     //GETTERS
