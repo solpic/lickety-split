@@ -84,6 +84,49 @@ public class FileManager {
 //        return "";
     }
 
+    public JSONObject getManifest() throws IOException {
+        File manifest = new File(this.getConfigsPath(".manifest.txt"));
+        JsonToFile writer = new JsonToFile(manifest);
+        return writer.getJSONObject();
+    }
+
+    public void syncManifests(JSONObject theirManifest) throws IOException {
+        JSONArray theirFiles = theirManifest.getJSONArray("files");
+        JSONArray yourFiles = this.getManifest().getJSONArray("files");
+        int theirLen = theirFiles.length();
+        int yourLen = yourFiles.length();
+        if(theirFiles != null && yourFiles != null){
+            for(int i = 0; i < theirLen; i++){
+                boolean alreadyExists = false;
+                JSONObject theirs = new JSONObject(theirFiles.get(i).toString());
+                for(int j = 0; j < yourLen; j++) {
+                    JSONObject yours = new JSONObject(yourFiles.get(j).toString());
+                    if (yours.getString("name").equals(theirs.getString("name"))) {
+                        FileInfo laterStamp = new FileInfo(this.compareTimestamp(yours, theirs));
+                        if(laterStamp.isDeleted()){
+                            this.deleteFileFromFolderIfExists(this.getSharedDirectoryPath(laterStamp.getName()));
+                        }
+                        yourFiles = this.replace(laterStamp, yourFiles);
+                        alreadyExists = true;
+                        break;
+                    }
+                }
+                if(!alreadyExists) {
+                    yourFiles.put(theirs);
+                }
+            }
+        }
+
+        File manifest = new File(this.getConfigsPath(".manifest.txt"));
+        JsonToFile writer = new JsonToFile(manifest);
+        theirManifest.put("files", yourFiles);
+        writer.writeJSONObject(theirManifest);
+    }
+
+    private JSONObject compareTimestamp(JSONObject fileA, JSONObject fileB){
+        return fileA.getLong("timeStamp") > fileB.getLong("timeStamp") ? fileA : fileB;
+    }
+
     public String getUsername(){
         try{
             JSONObject obj = new JsonToFile(new File(this.getConfigsPath( ".manifest.txt"))).getJSONObject();
@@ -144,8 +187,9 @@ public class FileManager {
         }
     }
 
+
     public void deleteFile(FileInfo info) throws IOException {
-        this.deleteFileFromFolder(this.getSharedDirectoryPath(info.getName()));
+        this.deleteFileFromFolderIfExists(this.getSharedDirectoryPath(info.getName()));
         this.updateFileInManifest(info);
     }
 
@@ -159,8 +203,8 @@ public class FileManager {
         writer.writeJSONObject(files);
     }
 
-    public void deleteFileFromFolder(String fileNameWithPath) throws IOException {
-        FileUtils.forceDelete(new File(fileNameWithPath));
+    public void deleteFileFromFolderIfExists(String fileNameWithPath) throws IOException {
+        if(new File(fileNameWithPath).exists()) FileUtils.forceDelete(new File(fileNameWithPath));
     }
 
     //replace old fileInfo with new fileInfo (info)

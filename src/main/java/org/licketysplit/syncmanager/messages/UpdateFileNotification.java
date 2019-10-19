@@ -4,7 +4,6 @@ import org.licketysplit.env.Environment;
 import org.licketysplit.filesharer.FileSharer;
 import org.licketysplit.securesocket.SecureSocket;
 import org.licketysplit.securesocket.messages.*;
-import org.json.JSONObject;
 import org.licketysplit.syncmanager.FileInfo;
 import org.licketysplit.syncmanager.FileManager;
 
@@ -42,7 +41,7 @@ public class UpdateFileNotification extends JSONMessage {
             try {
                  fm.updateFileInManifest(fileInfo);
                 try {
-                    fS.download(conn, fileInfo.getName());
+                    fS.downloadFrom(conn, fileInfo.getName());
                 } catch (Exception e) {
                     e.printStackTrace();
                 }

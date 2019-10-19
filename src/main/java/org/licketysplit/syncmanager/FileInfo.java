@@ -57,7 +57,14 @@ public class FileInfo {
     public FileInfo(String fileName, boolean deleted){
         this.name = fileName;
         this.length = 0;
-        this.timeStamp = 0;
+        this.timeStamp = new Date().getTime();
         this.deleted = deleted;
+    }
+
+    public FileInfo(JSONObject info){
+        this.name = info.getString("name");
+        this.length = info.getLong("length");
+        this.timeStamp = info.getLong("timeStamp");
+        this.deleted = info.getBoolean("deleted");
     }
 }

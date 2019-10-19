@@ -1,5 +1,6 @@
 package org.licketysplit.syncmanager;
 
+import org.json.JSONObject;
 import org.licketysplit.env.Environment;
 import org.licketysplit.syncmanager.messages.AddFileNotification;
 import org.licketysplit.securesocket.SecureSocket;
@@ -7,8 +8,10 @@ import org.licketysplit.securesocket.peers.PeerManager;
 import org.licketysplit.securesocket.peers.UserInfo;
 import org.licketysplit.syncmanager.messages.DeleteFileNotification;
 import org.licketysplit.syncmanager.messages.UpdateFileNotification;
+import org.licketysplit.syncmanager.messages.UpdateManifestRequest;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -53,7 +56,7 @@ public class SyncManager {
     }
 
     public void deleteFile(String fileName) throws Exception {
-        FileInfo deletedFileInfo = new FileInfo(fileName, false);
+        FileInfo deletedFileInfo = new FileInfo(fileName, true);
         this.env.getFM().deleteFile(deletedFileInfo);
 
         this.env.getLogger().log(Level.INFO, "Deleting File: " + deletedFileInfo.getName());
@@ -62,5 +65,19 @@ public class SyncManager {
         for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
             peer.getValue().sendFirstMessage(new DeleteFileNotification(deletedFileInfo), null);
         }
+    }
+
+    public void startUp() {
+
+    }
+
+    public void syncManifests() throws Exception {
+        JSONObject manifest = this.env.getFM().getManifest();
+
+        ConcurrentHashMap<UserInfo, SecureSocket> peers = this.env.getPm().getPeers();
+        for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
+            peer.getValue().sendFirstMessage(new UpdateManifestRequest(manifest), null);
+        }
+
     }
 }

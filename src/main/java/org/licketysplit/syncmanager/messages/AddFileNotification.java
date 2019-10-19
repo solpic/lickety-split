@@ -41,7 +41,7 @@ public class AddFileNotification extends JSONMessage {
             try {
                 fm.addFileToManifest(fileInfo);
                 try {
-                    fS.download(conn, fileInfo.getName());
+                    fS.downloadFrom(conn, fileInfo.getName());
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
