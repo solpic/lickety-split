@@ -102,11 +102,11 @@ public class FileManager {
                 for(int j = 0; j < yourLen; j++) {
                     JSONObject yours = new JSONObject(yourFiles.get(j).toString());
                     if (yours.getString("name").equals(theirs.getString("name"))) {
-                        FileInfo laterStamp = new FileInfo(this.compareTimestamp(yours, theirs));
-                        if(laterStamp.isDeleted()){
-                            this.deleteFileFromFolderIfExists(this.getSharedDirectoryPath(laterStamp.getName()));
+                        FileInfo laterStampFile = new FileInfo(this.compareTimestamp(yours, theirs));
+                        if(laterStampFile.isDeleted()){
+                            this.deleteFileFromFolderIfExists(this.getSharedDirectoryPath(laterStampFile.getName()));
                         }
-                        yourFiles = this.replace(laterStamp, yourFiles);
+                        yourFiles = this.replace(laterStampFile, yourFiles);
                         alreadyExists = true;
                         break;
                     }

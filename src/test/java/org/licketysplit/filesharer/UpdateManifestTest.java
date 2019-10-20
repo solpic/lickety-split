@@ -44,12 +44,12 @@ public class UpdateManifestTest {
                 String configs = "configs";
                 initialize(env, fs, fm, pm, sm, directory, configs);
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(4000);
                     pm.initialize(peer);
                     pm.listenInNewThread();
                     env.getLogger().log(Level.INFO, "Sending update");
-                    Thread.sleep(1000);
-                    fm.addFile(Paths.get(System.getProperty("user.home"), "TestResources", "tester.txt").toString());
+                    // Thread.sleep(1000);
+                    // fm.addFile(Paths.get(System.getProperty("user.home"), "TestResources", "tester2.txt").toString());
                     // sm.syncManifests();
                     while(true){}
 
@@ -75,6 +75,7 @@ public class UpdateManifestTest {
         initialize(env, fs, fm, pm, sm, directory, configs);
         fm.addFile(Paths.get(System.getProperty("user.home"), "TestResources", "tester2.txt").toString());
         sm.deleteFile("tester2.txt");
+        Thread.sleep(1000);
         sm.syncManifests();
         pm.listenInNewThread();
         while(true){}
