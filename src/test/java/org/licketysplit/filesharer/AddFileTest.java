@@ -4,6 +4,7 @@ import org.junit.Test;
 import org.licketysplit.env.Environment;
 import org.licketysplit.securesocket.peers.PeerManager;
 import org.licketysplit.securesocket.peers.UserInfo;
+import org.licketysplit.syncmanager.FileInfo;
 import org.licketysplit.syncmanager.FileManager;
 import org.licketysplit.syncmanager.SyncManager;
 
@@ -49,7 +50,7 @@ public class AddFileTest{
                     pm.listenInNewThread();
                     env.getLogger().log(Level.INFO, "Sending update");
                     Thread.sleep(1000);
-                    sm.addFile(System.getProperty("user.home") + "/tester.txt");
+                    // sm.addFile(System.getProperty("user.home") + "/tester.txt");
                     while(true){}
 
                 } catch(Exception e) {
@@ -74,7 +75,8 @@ public class AddFileTest{
         initialize(env, fs, fm, pm, sm, directory, configs);
         pm.listenInNewThread();
         Thread.sleep(3000);
-        sm.addFile(System.getProperty("user.home") + "/tester2.txt");
+        System.out.println("downloading");
+        fs.download(new FileInfo("1", false));
         while(true){}
 
     }

@@ -63,6 +63,8 @@ public class FileManager {
         return new File(this.getSharedDirectoryPath(fileName)).exists();
     }
 
+    public File getFile(String fileName) {return new File(this.getSharedDirectoryPath(fileName));}
+
     //GETTERS
 
     private String getConfigsPath(){

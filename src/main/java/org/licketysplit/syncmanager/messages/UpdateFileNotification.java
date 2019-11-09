@@ -41,7 +41,7 @@ public class UpdateFileNotification extends JSONMessage {
             try {
                  fm.updateFileInManifest(fileInfo);
                 try {
-                    fS.downloadFrom(conn, fileInfo.getName());
+//                    fS.downloadFrom(conn, fileInfo.getName());
                 } catch (Exception e) {
                     e.printStackTrace();
                 }

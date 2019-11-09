@@ -1,5 +1,6 @@
 package org.licketysplit.filesharer.messages;
 
+import org.licketysplit.filesharer.ShareableFile;
 import org.licketysplit.securesocket.messages.JSONMessage;
 import org.licketysplit.securesocket.messages.Message;
 
@@ -13,14 +14,10 @@ public class ChunkDownloadResponse extends JSONMessage {
 
     public ChunkDownloadResponse() {}
 
-    public ChunkDownloadResponse(String filePath){
-        File file = new File(filePath);
+    public ChunkDownloadResponse(String filePath, int chunk){
+        ShareableFile file = new ShareableFile(filePath, 1024);
         try {
-            FileInputStream fis = new FileInputStream(file);
-            byte[] buffer = new byte[(int)file.length()]; // quick workaround
-            fis.read(buffer);
-            this.data = buffer;
-            fis.close();
+            this.data = file.getChunk(chunk); // quick workaround
         } catch (IOException e){
             e.printStackTrace();
         }
