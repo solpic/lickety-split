@@ -45,11 +45,11 @@ public class AddFileTest{
                 String configs = "configs";
                 initialize(env, fs, fm, pm, sm, directory, configs);
                 try {
-                    Thread.sleep(1000);
                     pm.initialize(peer);
                     pm.listenInNewThread();
                     env.getLogger().log(Level.INFO, "Sending update");
-                    Thread.sleep(1000);
+                    System.out.println("added 1");
+                    sm.addFile(System.getProperty("user.home") + "/1");
                     // sm.addFile(System.getProperty("user.home") + "/tester.txt");
                     while(true){}
 
@@ -74,8 +74,8 @@ public class AddFileTest{
         SyncManager sm = new SyncManager();
         initialize(env, fs, fm, pm, sm, directory, configs);
         pm.listenInNewThread();
-        Thread.sleep(3000);
-        System.out.println("downloading");
+        Thread.sleep(5000);
+        System.out.println("downloading 1");
         fs.download(new FileInfo("1", false));
         while(true){}
 

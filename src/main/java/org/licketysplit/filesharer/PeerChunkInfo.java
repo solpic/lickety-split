@@ -28,7 +28,7 @@ public class PeerChunkInfo {
         return false;
     }
 
-    public int getChunksLength(){
+    public int chunksLength(){
         return this.chunks.length;
     }
 

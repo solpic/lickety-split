@@ -112,6 +112,7 @@
 //    }
 //
 //    public void initializeFilesInFolder(String folder){
+//    public void initializeFilesInFolder(String folder){
 //        new File(Paths.get(System.getProperty("user.home"), folder).toString()).mkdir();
 //        File tester = new File(Paths.get(System.getProperty("user.home"), folder, "tester.txt").toString());
 //        try{

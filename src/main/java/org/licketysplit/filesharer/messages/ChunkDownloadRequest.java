@@ -23,8 +23,6 @@ public class ChunkDownloadRequest extends JSONMessage {
             ChunkDownloadRequest chunkDownloadRequest =  m.getMessage();
             String requestedFileName = chunkDownloadRequest.fileInfo.getName();
             int chunk = chunkDownloadRequest.chunk;
-            // Break down file here with Shareable File
-            //Iterate over chunks
             Environment env = m.getEnv();
             String requestedFileLocation = env.getDirectory(requestedFileName);
             try {

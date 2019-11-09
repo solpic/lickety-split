@@ -10,32 +10,6 @@ import org.licketysplit.syncmanager.FileInfo;
 import java.util.*;
 
 public class DownloadManager {
-
-    public static class ChunkDownloadRequestHandler implements MessageHandler {
-        public PeerDownloadInfo peer;
-        public AssemblingFile assemblingFile;
-        public int chunk;
-        public DownloadManager dManager;
-
-        public ChunkDownloadRequestHandler(PeerDownloadInfo peer, AssemblingFile assemblingFile, int chunk, DownloadManager dManager){
-            this.peer = peer;
-            this.assemblingFile = assemblingFile;
-            this.chunk = chunk;
-            this.dManager = dManager;
-        }
-
-        @Override
-        public void handle(ReceivedMessage m) {
-            ChunkDownloadResponse decodedMessage = m.getMessage();
-            this.assemblingFile.saveChunk(decodedMessage.data, this.chunk);
-            try {
-                this.dManager.chunkCompleted(this.chunk, this.peer);
-            } catch(Exception e){
-                e.printStackTrace();
-            }
-        }
-    }
-
     private AssemblingFile assemblingFile;
     private ArrayList<PeerDownloadInfo> peers;
     private ArrayList<Integer> availableChunks; //Simplify
@@ -69,14 +43,18 @@ public class DownloadManager {
         if(peer == null){
             System.out.println("No peer found");
         }
-        peer.addOpenRequest();
         this.availableChunks.remove(rand);
+        peer.addOpenRequest();
+        this.sendDownloadRequest(chunk, peer);
+    }
+
+    public void sendDownloadRequest(int chunk, PeerDownloadInfo peer) throws Exception {
         peer.getSocket().sendFirstMessage(new ChunkDownloadRequest(this.assemblingFile.getFileInfo(), chunk), new ChunkDownloadRequestHandler(peer, this.assemblingFile, chunk, this)); //need to close request and remove chunk
     }
 
-    public void chunkCompleted(int chunk, PeerDownloadInfo peer) throws Exception {
+    public void onChunkCompleted(int chunk, PeerDownloadInfo peer) throws Exception {
         peer.removeOpenRequest();
-        this.completedChunks.remove(chunk);
+        this.completedChunks.add(chunk);
         this.requestRandomChunk();
     }
 
@@ -120,4 +98,29 @@ public class DownloadManager {
     }
 
 
+    public static class ChunkDownloadRequestHandler implements MessageHandler {
+        public PeerDownloadInfo peer;
+        public AssemblingFile assemblingFile;
+        public int chunk;
+        public DownloadManager dManager;
+
+        public ChunkDownloadRequestHandler(PeerDownloadInfo peer, AssemblingFile assemblingFile, int chunk, DownloadManager dManager){
+            this.peer = peer;
+            this.assemblingFile = assemblingFile;
+            this.chunk = chunk;
+            this.dManager = dManager;
+        }
+
+        @Override
+        public void handle(ReceivedMessage m) {
+            ChunkDownloadResponse decodedMessage = m.getMessage();
+            this.assemblingFile.saveChunk(decodedMessage.data, this.chunk);
+            try {
+                this.dManager.onChunkCompleted(this.chunk, this.peer);
+            } catch(Exception e){
+                e.printStackTrace();
+            }
+        }
+    }
 }
+

@@ -36,7 +36,7 @@ public class FileSharer {
         @Override
         public void handle(ReceivedMessage m) throws Exception {
             ChunkAvailabilityResponse decodedMessage = m.getMessage();
-            PeerChunkInfo peerChunkInfo = new PeerChunkInfo();
+            PeerChunkInfo peerChunkInfo = decodedMessage.peerChunkInfo;
             dManager.addPeerAndRequestChunkIfPossible(peerChunkInfo, m.getConn());
         }
     }

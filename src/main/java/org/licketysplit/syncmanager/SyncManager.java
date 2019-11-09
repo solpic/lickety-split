@@ -49,10 +49,10 @@ public class SyncManager {
 
         this.env.getLogger().log(Level.INFO, "Adding File: " + info.getName());
 
-        ConcurrentHashMap<UserInfo, SecureSocket> peers = this.env.getPm().getPeers();
-        for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
-            peer.getValue().sendFirstMessage(new AddFileNotification(info), null);
-        }
+//        ConcurrentHashMap<UserInfo, SecureSocket> peers = this.env.getPm().getPeers();
+//        for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
+//            peer.getValue().sendFirstMessage(new AddFileNotification(info), null);
+//        }
     }
 
     public void deleteFile(String fileName) throws Exception {

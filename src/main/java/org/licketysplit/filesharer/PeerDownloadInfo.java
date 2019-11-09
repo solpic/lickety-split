@@ -18,7 +18,7 @@ public class PeerDownloadInfo {
     }
 
     public int getChunksLength(){
-        return this.peerChunkInfo.getChunksLength();
+        return this.peerChunkInfo.chunksLength();
     }
 
     public void addOpenRequest(){

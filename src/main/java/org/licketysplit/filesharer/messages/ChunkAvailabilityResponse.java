@@ -9,6 +9,7 @@ public class ChunkAvailabilityResponse extends JSONMessage {
 
     public ChunkAvailabilityResponse(File file) {
         this.peerChunkInfo = new PeerChunkInfo(file);
+        System.out.println(peerChunkInfo.chunksLength());
     }
 
     public ChunkAvailabilityResponse() {
