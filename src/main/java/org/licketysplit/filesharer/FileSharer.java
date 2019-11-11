@@ -42,7 +42,7 @@ public class FileSharer {
     }
 
     public void download(FileInfo fileInfo) throws Exception {
-        DownloadManager dManager = new DownloadManager(fileInfo);
+        DownloadManager dManager = new DownloadManager(fileInfo, this.env);
 
         ConcurrentHashMap<UserInfo, SecureSocket> peers = this.env.getPm().getPeers();
         for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {

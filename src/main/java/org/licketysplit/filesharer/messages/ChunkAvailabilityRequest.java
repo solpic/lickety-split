@@ -5,6 +5,8 @@ import org.licketysplit.securesocket.messages.*;
 import org.licketysplit.syncmanager.FileInfo;
 import org.licketysplit.syncmanager.FileManager;
 
+import java.util.logging.Level;
+
 public class ChunkAvailabilityRequest extends JSONMessage {
     public FileInfo fileInfo;
 
@@ -22,8 +24,10 @@ public class ChunkAvailabilityRequest extends JSONMessage {
             String requestedFileName = tstMsg.fileInfo.getName();
             Environment env = m.getEnv();
             FileManager fm = env.getFM();
+            env.getLogger().log(Level.INFO, "looking for file");
             if( fm.hasFile(requestedFileName)) {
                 try {
+                    env.getLogger().log(Level.INFO, "have file");
                     m.respond(new ChunkAvailabilityResponse(fm.getFile(requestedFileName)), null);
                 } catch (Exception e) {
                     e.printStackTrace();

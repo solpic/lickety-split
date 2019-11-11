@@ -86,6 +86,11 @@ public class FileManager {
 //        return "";
     }
 
+    //For constructing the file, the file name is the folder and the parts are the file
+    public String getTempDirectoryPath(String directoryName, String fileName) {
+        return this.env.getTempDirectory(directoryName, fileName);
+    }
+
     public JSONObject getManifest() throws IOException {
         File manifest = new File(this.getConfigsPath(".manifest.txt"));
         JsonToFile writer = new JsonToFile(manifest);

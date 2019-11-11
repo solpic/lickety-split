@@ -2,42 +2,38 @@ package org.licketysplit.filesharer;
 
 import org.licketysplit.securesocket.*;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import java.io.*;
 import java.nio.ByteBuffer;
 
 public class ShareableFile extends File {
-    private long chunkSize;
+    private int chunkSize;
 
-    public ShareableFile(String pathname, long chunkSize){
+    public ShareableFile(String pathname, int chunkSize){
         super(pathname);
         this.chunkSize = chunkSize;
-
     }
 
     public byte[] getChunk(int chunk) throws IOException {
-        return new byte[1];
-//        FileInputStream fis = new FileInputStream(this);
-//        long offset = 0;
-//        if(chunk > 0){
-//            offset = this.getOffset(chunk);
-//        }
-//        int spaceNeeded = this.getSpaceNeeded(chunk, offset);
-//            //A direct ByteBuffer should be slightly faster than a 'normal' one for IO-Operations
-//        ByteBuffer bytes = ByteBuffer.allocateDirect(spaceNeeded);
-//        fis.getChannel().read(bytes, offset);
-//
-//        byte[] readBytes = bytes.array();
-//        fis.close();
-//
-//        return readBytes;
+        DataInputStream in = new DataInputStream(new FileInputStream(this));
+        int offset = 0;
+        if(chunk > 0){
+            offset = this.getOffset(chunk);
+        }
+        int spaceNeeded = this.getSpaceNeeded(chunk, offset);
+        byte[] bytes = new byte[spaceNeeded];
+        for(int i = 0; i < chunk; i++){
+            in.read(bytes);
+        }
+        in.read(bytes);
+
+        in.close();
+
+        return bytes;
     }
 
-    private long getOffset(int chunk){
+    private int getOffset(int chunk){
         long length = this.length();
-        long offset = chunk * this.chunkSize;
+        int offset = chunk * this.chunkSize;
         if(offset > length){
             return 0;
         }

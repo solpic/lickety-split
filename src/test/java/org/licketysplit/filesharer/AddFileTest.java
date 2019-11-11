@@ -16,6 +16,12 @@ import java.util.logging.Level;
 
 public class AddFileTest{
 
+    static int currFolder;
+
+    static {
+        currFolder = 0;
+    }
+
     @Test
     public void addFileWorks() throws Exception {
 
@@ -41,8 +47,9 @@ public class AddFileTest{
                 }
                 Environment env = new Environment(new UserInfo(username, server), pm);
                 env.getLogger().log(Level.INFO, "Server is: "+env.getUserInfo().getServer().getPort());
-                String directory =  "Test";
-                String configs = "configs";
+                String directory =  "Test" + currFolder;
+                currFolder++;
+                String configs = "configs" + currFolder;
                 initialize(env, fs, fm, pm, sm, directory, configs);
                 try {
                     pm.initialize(peer);
@@ -69,14 +76,14 @@ public class AddFileTest{
         //fm.initializeFiles(System.getProperty("user.home") + "/Test1/", "wnewman");
         PeerManager pm = new PeerManager();
         Environment env = new Environment(user, pm);
-        String directory = "Test1";
+        String directory = "Test";
         String configs = "configs1";
         SyncManager sm = new SyncManager();
         initialize(env, fs, fm, pm, sm, directory, configs);
         pm.listenInNewThread();
-        Thread.sleep(5000);
+        Thread.sleep(7000);
         System.out.println("downloading 1");
-        fs.download(new FileInfo("1", false));
+        fs.download(new FileInfo("1", false, 4096));
         while(true){}
 
     }
@@ -113,12 +120,5 @@ public class AddFileTest{
 
     public void initializeFilesInFolder(String folder){
         new File(Paths.get(System.getProperty("user.home"), folder).toString()).mkdir();
-        File tester = new File(Paths.get(System.getProperty("user.home"), folder, "tester.txt").toString());
-        try{
-            tester.createNewFile();
-        } catch(IOException e){
-            e.printStackTrace();
-        }
-
     }
 }

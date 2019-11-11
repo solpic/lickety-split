@@ -29,6 +29,11 @@ public class Environment {
         return path.toString();
     }
 
+    public String getTempDirectory(String directoryName, String fileName){
+        Path path = Paths.get(System.getProperty("user.home"), this.directory, directoryName, fileName);
+        return path.toString();
+    }
+
     public void setDirectory(String directory) {
         this.directory = directory;
     }

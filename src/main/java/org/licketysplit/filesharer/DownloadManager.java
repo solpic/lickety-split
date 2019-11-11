@@ -1,25 +1,36 @@
 package org.licketysplit.filesharer;
+import org.licketysplit.env.Environment;
 import org.licketysplit.filesharer.messages.ChunkDownloadRequest;
 import org.licketysplit.filesharer.messages.ChunkDownloadResponse;
 import org.licketysplit.securesocket.SecureSocket;
 
 import org.licketysplit.securesocket.messages.MessageHandler;
 import org.licketysplit.securesocket.messages.ReceivedMessage;
+import org.licketysplit.securesocket.peers.UserInfo;
 import org.licketysplit.syncmanager.FileInfo;
 
+import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DownloadManager {
     private AssemblingFile assemblingFile;
     private ArrayList<PeerDownloadInfo> peers;
     private ArrayList<Integer> availableChunks; //Simplify
     private ArrayList<Integer> completedChunks;
+    private Environment env;
 
-    public DownloadManager(FileInfo fileInfo){
-        this.assemblingFile = new AssemblingFile(fileInfo);
+    public DownloadManager(FileInfo fileInfo, Environment env){
+        this.assemblingFile = new AssemblingFile(fileInfo, env, this.getLengthInChunks(fileInfo));
         this.peers = new ArrayList<PeerDownloadInfo>();
         this.availableChunks = new ArrayList<Integer>();
         this.completedChunks = new ArrayList<Integer>();
+        this.env = env;
+    }
+
+    private int getLengthInChunks(FileInfo fileInfo){
+        long preciseChunks = fileInfo.getLength() / 1024;
+        return (int) Math.ceil(preciseChunks);
     }
 
     public void addPeerAndRequestChunkIfPossible(PeerChunkInfo peerInfo, SecureSocket socket) throws Exception {
@@ -38,14 +49,23 @@ public class DownloadManager {
         }
         int rand = new Random().nextInt(availableChunks.size());
         int chunk = this.availableChunks.get(rand);
+        this.availableChunks.remove(rand);
 
         PeerDownloadInfo peer = this.findOptimalPeer(chunk);
         if(peer == null){
             System.out.println("No peer found");
         }
-        this.availableChunks.remove(rand);
+        System.out.println(this.availableChunks);
+        System.out.println("Current Chunks: " + chunk);
         peer.addOpenRequest();
         this.sendDownloadRequest(chunk, peer);
+        this.updatePeerList();
+    }
+
+    public void updatePeerList(){
+        ConcurrentHashMap<UserInfo, SecureSocket> peers = this.env.getPm().getPeers();
+
+
     }
 
     public void sendDownloadRequest(int chunk, PeerDownloadInfo peer) throws Exception {
@@ -112,7 +132,7 @@ public class DownloadManager {
         }
 
         @Override
-        public void handle(ReceivedMessage m) {
+        public void handle(ReceivedMessage m) throws IOException {
             ChunkDownloadResponse decodedMessage = m.getMessage();
             this.assemblingFile.saveChunk(decodedMessage.data, this.chunk);
             try {

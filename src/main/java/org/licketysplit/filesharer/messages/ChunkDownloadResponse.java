@@ -16,6 +16,7 @@ public class ChunkDownloadResponse extends JSONMessage {
 
     public ChunkDownloadResponse(String filePath, int chunk){
         ShareableFile file = new ShareableFile(filePath, 1024);
+
         try {
             this.data = file.getChunk(chunk);
         } catch (IOException e){

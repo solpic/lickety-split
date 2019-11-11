@@ -5,6 +5,8 @@ import org.licketysplit.securesocket.messages.*;
 import org.licketysplit.syncmanager.FileInfo;
 import org.licketysplit.syncmanager.FileManager;
 
+import java.util.logging.Level;
+
 public class ChunkDownloadRequest extends JSONMessage {
     public FileInfo fileInfo;
     public int chunk;
@@ -24,6 +26,7 @@ public class ChunkDownloadRequest extends JSONMessage {
             String requestedFileName = chunkDownloadRequest.fileInfo.getName();
             int chunk = chunkDownloadRequest.chunk;
             Environment env = m.getEnv();
+            env.getLogger().log(Level.INFO, "SENDING CHUNK " + chunk);
             String requestedFileLocation = env.getDirectory(requestedFileName);
             try {
                 m.respond(new ChunkDownloadResponse(requestedFileLocation, chunk), null);
