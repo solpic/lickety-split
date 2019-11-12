@@ -12,20 +12,29 @@ import org.licketysplit.syncmanager.FileInfo;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.logging.Level;
 
-public class DownloadManager {
+public class DownloadManager{
     private AssemblingFile assemblingFile;
     private ArrayList<PeerDownloadInfo> peers;
     private ArrayList<Integer> availableChunks; //Simplify
     private ArrayList<Integer> completedChunks;
     private Environment env;
+    private ReentrantLock lock;
+    private Random r;
 
-    public DownloadManager(FileInfo fileInfo, Environment env){
+
+    public DownloadManager(FileInfo fileInfo, Environment env) throws IOException {
         this.assemblingFile = new AssemblingFile(fileInfo, env, this.getLengthInChunks(fileInfo));
         this.peers = new ArrayList<PeerDownloadInfo>();
         this.availableChunks = new ArrayList<Integer>();
         this.completedChunks = new ArrayList<Integer>();
         this.env = env;
+        this.lock = new ReentrantLock();
+        this.r = new Random();
+        this.r.setSeed(System.currentTimeMillis());
     }
 
     private int getLengthInChunks(FileInfo fileInfo){
@@ -47,16 +56,20 @@ public class DownloadManager {
         if(availableChunks.size() == 0){
             return;
         }
-        int rand = new Random().nextInt(availableChunks.size());
-        int chunk = this.availableChunks.get(rand);
-        this.availableChunks.remove(rand);
+        int chunk;
+        this.lock.lock();
+        try {
+            int rand = this.r.nextInt(availableChunks.size());
+            chunk = this.availableChunks.get(rand);
+            this.availableChunks.remove(rand);
+        } finally {
+            this.lock.unlock();
+        }
 
         PeerDownloadInfo peer = this.findOptimalPeer(chunk);
         if(peer == null){
             System.out.println("No peer found");
         }
-        System.out.println(this.availableChunks);
-        System.out.println("Current Chunks: " + chunk);
         peer.addOpenRequest();
         this.sendDownloadRequest(chunk, peer);
         this.updatePeerList();
@@ -89,11 +102,12 @@ public class DownloadManager {
 
     private PeerDownloadInfo findOptimalPeer(int chunk){
         PeerDownloadInfo currOptimalPeer = null;
-        for (PeerDownloadInfo peer: this.peers) {
-            if(peer.hasChunk(chunk)){
-                currOptimalPeer = this.comparePeers(currOptimalPeer, peer);
+        while(currOptimalPeer == null){
+            int rand = r.nextInt(this.peers.size());
+            System.out.println("Curr peer: " + rand + " Curr size: " + this.peers.size());
+            if(this.peers.get(rand).hasChunk(chunk)){
+                currOptimalPeer = this.peers.get(rand);
             }
-
         }
 
         return currOptimalPeer;

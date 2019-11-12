@@ -4,29 +4,24 @@ import org.licketysplit.securesocket.*;
 
 import java.io.*;
 import java.nio.ByteBuffer;
+import java.util.Random;
 
-public class ShareableFile extends File {
+public class ShareableFile extends File{
     private int chunkSize;
 
-    public ShareableFile(String pathname, int chunkSize){
+    public ShareableFile(String pathname, int chunkSize) {
         super(pathname);
         this.chunkSize = chunkSize;
     }
 
     public byte[] getChunk(int chunk) throws IOException {
-        DataInputStream in = new DataInputStream(new FileInputStream(this));
         int offset = 0;
-        if(chunk > 0){
-            offset = this.getOffset(chunk);
-        }
+        if(chunk > 0) offset = this.getOffset(chunk); //RENAME, offset is misnomer
         int spaceNeeded = this.getSpaceNeeded(chunk, offset);
         byte[] bytes = new byte[spaceNeeded];
-        for(int i = 0; i < chunk; i++){
-            in.read(bytes);
-        }
-        in.read(bytes);
-
-        in.close();
+        RandomAccessFile raf = new RandomAccessFile(this, "r");
+        raf.seek(chunk*1024);
+        raf.read(bytes);
 
         return bytes;
     }

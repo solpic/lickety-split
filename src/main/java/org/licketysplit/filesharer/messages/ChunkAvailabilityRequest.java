@@ -24,10 +24,8 @@ public class ChunkAvailabilityRequest extends JSONMessage {
             String requestedFileName = tstMsg.fileInfo.getName();
             Environment env = m.getEnv();
             FileManager fm = env.getFM();
-            env.getLogger().log(Level.INFO, "looking for file");
             if( fm.hasFile(requestedFileName)) {
                 try {
-                    env.getLogger().log(Level.INFO, "have file");
                     m.respond(new ChunkAvailabilityResponse(fm.getFile(requestedFileName)), null);
                 } catch (Exception e) {
                     e.printStackTrace();
