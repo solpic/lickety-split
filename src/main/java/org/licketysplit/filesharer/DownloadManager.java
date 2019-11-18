@@ -12,24 +12,22 @@ import org.licketysplit.syncmanager.FileInfo;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.logging.Level;
 
-public class DownloadManager{
+public class DownloadManager extends Thread{
+
     private AssemblingFile assemblingFile;
-    private ArrayList<PeerDownloadInfo> peers;
-    private ArrayList<Integer> availableChunks; //Simplify
+    private HashMap<UserInfo, PeerDownloadInfo> peers;
+    private ArrayList<Integer> availableChunks;
     private ArrayList<Integer> completedChunks;
     private Environment env;
     private ReentrantLock lock;
     private Random r;
 
-
     public DownloadManager(FileInfo fileInfo, Environment env) throws IOException {
         this.assemblingFile = new AssemblingFile(fileInfo, env, this.getLengthInChunks(fileInfo));
-        this.peers = new ArrayList<PeerDownloadInfo>();
         this.availableChunks = new ArrayList<Integer>();
+        this.peers = new HashMap<UserInfo, PeerDownloadInfo>();
         this.completedChunks = new ArrayList<Integer>();
         this.env = env;
         this.lock = new ReentrantLock();
@@ -37,123 +35,89 @@ public class DownloadManager{
         this.r.setSeed(System.currentTimeMillis());
     }
 
+    public AssemblingFile getAssemblingFile() {
+        return assemblingFile;
+    }
+
     private int getLengthInChunks(FileInfo fileInfo){
         long preciseChunks = fileInfo.getLength() / 1024;
         return (int) Math.ceil(preciseChunks);
     }
 
-    public void addPeerAndRequestChunkIfPossible(PeerChunkInfo peerInfo, SecureSocket socket) throws Exception {
-        this.peers.add(new PeerDownloadInfo(peerInfo, socket));
+    public void addPeerAndRequestChunkIfPossible(PeerChunkInfo peerInfo, SecureSocket socket, UserInfo userInfo) throws Exception {
+        this.peers.put(userInfo, new PeerDownloadInfo(peerInfo, socket));
         this.updateAvailableChunks(peerInfo);
-        this.requestRandomChunk();
+        this.requestRandomChunk(userInfo);
     }
 
-    public ArrayList<PeerDownloadInfo> getPeers(){
+    public HashMap<UserInfo, PeerDownloadInfo> getPeers(){
         return this.peers;
     }
 
-    public void requestRandomChunk() throws Exception {
-        if(availableChunks.size() == 0){
-            return;
-        }
-        int chunk;
-        this.lock.lock();
+    public void requestRandomChunk(UserInfo userInfo) throws Exception {
+        int chunk = -1;
+        PeerDownloadInfo peer = this.getPeers().get(userInfo);
+
+        this.lock.lock(); //Lock so no concurrency issues
         try {
-            int rand = this.r.nextInt(availableChunks.size());
-            chunk = this.availableChunks.get(rand);
-            this.availableChunks.remove(rand);
+            chunk = peer.getRandomDesirableChunk(this.availableChunks);
+            if(chunk < 0) return; // TODO(will) Maybe update available chunks at this point
+            this.availableChunks.remove(Integer.valueOf(chunk));
         } finally {
             this.lock.unlock();
         }
 
-        PeerDownloadInfo peer = this.findOptimalPeer(chunk);
         if(peer == null){
             System.out.println("No peer found");
         }
-        peer.addOpenRequest();
-        this.sendDownloadRequest(chunk, peer);
-        this.updatePeerList();
+        this.sendDownloadRequest(chunk, userInfo, peer);
+        // this.updatePeerList();
     }
 
     public void updatePeerList(){
         ConcurrentHashMap<UserInfo, SecureSocket> peers = this.env.getPm().getPeers();
-
-
+        //TODO(WILL)
+        //Figure out if we need updatePeerList then implement it if necessary
     }
 
-    public void sendDownloadRequest(int chunk, PeerDownloadInfo peer) throws Exception {
-        peer.getSocket().sendFirstMessage(new ChunkDownloadRequest(this.assemblingFile.getFileInfo(), chunk), new ChunkDownloadRequestHandler(peer, this.assemblingFile, chunk, this)); //need to close request and remove chunk
+    public void sendDownloadRequest(int chunk, UserInfo userInfo, PeerDownloadInfo peer) throws Exception {
+        peer.getSocket().sendFirstMessage(new ChunkDownloadRequest(this.assemblingFile.getFileInfo(), chunk), new ChunkDownloadRequestHandler(chunk,  this, userInfo)); //need to close request and remove chunk
     }
 
-    public void onChunkCompleted(int chunk, PeerDownloadInfo peer) throws Exception {
-        peer.removeOpenRequest();
+    public void onChunkCompleted(int chunk, UserInfo userInfo, boolean isFinished) throws Exception {
+        if(isFinished){
+            return;
+        }
         this.completedChunks.add(chunk);
-        this.requestRandomChunk();
+        this.requestRandomChunk(userInfo);
     }
 
     public void updateAvailableChunks(PeerChunkInfo peerChunkInfo){
-        int[] newChunks = peerChunkInfo.getChunks();
+        ArrayList<Integer> newChunks = peerChunkInfo.getChunks();
         Set<Integer> chunks = new HashSet<Integer>(this.availableChunks);
-        for(int i = 0; i < newChunks.length; i++){
-            chunks.add(newChunks[i]);
+        for(int i = 0; i < newChunks.size(); i++){
+            chunks.add(newChunks.get(i));
         }
         this.availableChunks = new ArrayList<Integer>(chunks);
     }
 
-    private PeerDownloadInfo findOptimalPeer(int chunk){
-        PeerDownloadInfo currOptimalPeer = null;
-        while(currOptimalPeer == null){
-            int rand = r.nextInt(this.peers.size());
-            System.out.println("Curr peer: " + rand + " Curr size: " + this.peers.size());
-            if(this.peers.get(rand).hasChunk(chunk)){
-                currOptimalPeer = this.peers.get(rand);
-            }
-        }
-
-        return currOptimalPeer;
-    }
-
-    private PeerDownloadInfo comparePeers(PeerDownloadInfo peerOne, PeerDownloadInfo peerTwo){
-        if(peerOne == null){
-            return peerTwo;
-        }
-
-        if(peerTwo.getOpenRequests() < peerOne.getOpenRequests()){
-            //If peerTwo has less openRequests then  opt for them
-            return peerTwo;
-        }
-
-        if(peerTwo.getOpenRequests() == peerOne.getOpenRequests() && peerOne.getChunksLength() > peerTwo.getChunksLength()){
-            //If same amt of openRequests then opt for one with less available chunks
-            return peerTwo;
-        }
-
-        return peerOne;
-    }
-
-
     public static class ChunkDownloadRequestHandler implements MessageHandler {
         public PeerDownloadInfo peer;
-        public AssemblingFile assemblingFile;
         public int chunk;
         public DownloadManager dManager;
+        public UserInfo userInfo;
 
-        public ChunkDownloadRequestHandler(PeerDownloadInfo peer, AssemblingFile assemblingFile, int chunk, DownloadManager dManager){
-            this.peer = peer;
-            this.assemblingFile = assemblingFile;
+        public ChunkDownloadRequestHandler(int chunk, DownloadManager dManager, UserInfo userInfo){
             this.chunk = chunk;
             this.dManager = dManager;
+            this.userInfo = userInfo;
         }
 
         @Override
-        public void handle(ReceivedMessage m) throws IOException {
+        public void handle(ReceivedMessage m) throws Exception {
             ChunkDownloadResponse decodedMessage = m.getMessage();
-            this.assemblingFile.saveChunk(decodedMessage.data, this.chunk);
-            try {
-                this.dManager.onChunkCompleted(this.chunk, this.peer);
-            } catch(Exception e){
-                e.printStackTrace();
-            }
+            boolean isFinished = this.dManager.getAssemblingFile().saveChunk(decodedMessage.data, this.chunk);
+            this.dManager.onChunkCompleted(this.chunk, this.userInfo, isFinished);
         }
     }
 }

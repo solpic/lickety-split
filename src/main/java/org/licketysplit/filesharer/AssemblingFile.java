@@ -16,6 +16,7 @@ public class AssemblingFile{
     private ArrayList<Integer> chunks = new ArrayList<Integer>();
     private Environment env;
     private RandomAccessFile file;
+    private boolean isFinished;
 
     public AssemblingFile(FileInfo fileInfo, Environment env, int lengthInChunks) throws IOException {
         this.env = env;
@@ -24,27 +25,27 @@ public class AssemblingFile{
         File temp = new File(this.env.getFM().getSharedDirectoryPath(fileInfo.name));
         temp.createNewFile();
         this.file = new RandomAccessFile(temp, "rw");
-        this.file.setLength(fileInfo.getLength());
+        this.file.setLength(fileInfo.getLength()); // Set file length to desired file's length
+        this.isFinished = false;
     }
 
     public FileInfo getFileInfo() {
         return fileInfo;
     }
 
-    public void saveChunk(byte[] data, int chunk) throws IOException {
+    public boolean saveChunk(byte[] data, int chunk) throws IOException {
+        if(this.isFinished) return true;
         this.chunks.add(chunk);
         this.writeChunkToFile(data, chunk);
         if(this.chunks.size() == lengthInChunks){
-            return;
+            this.isFinished = true;
         }
+
+        return this.isFinished;
     }
 
-    private void writeChunkToFile(byte[] data, int chunk){
-        try {
-            this.file.seek(chunk*1024);
-            this.file.write(data);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    private void writeChunkToFile(byte[] data, int chunk) throws IOException{
+        this.file.seek(chunk*1024);
+        this.file.write(data);
     }
 }
