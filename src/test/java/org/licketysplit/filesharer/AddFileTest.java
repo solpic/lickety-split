@@ -9,7 +9,6 @@ import org.licketysplit.syncmanager.FileManager;
 import org.licketysplit.syncmanager.SyncManager;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Random;
 import java.util.logging.Level;
@@ -65,7 +64,7 @@ public class AddFileTest{
             }
         }
 
-        for(int i = 0; i<2; i++) {
+        for(int i = 0; i<4; i++) {
             ServerThread serverThread = new ServerThread();
             serverThread.start();
         }
@@ -79,9 +78,9 @@ public class AddFileTest{
         SyncManager sm = new SyncManager();
         initialize(env, fs, fm, pm, sm, directory, configs);
         pm.listenInNewThread();
-        Thread.sleep(5000);
-        System.out.println("downloading 2");
-        fs.download(new FileInfo("2.png", false, 3296022 ));
+        Thread.sleep(3000);
+        File file = new File(System.getProperty("user.home") + "/2.png");
+        fs.download(new FileInfo("2.png", false, (int) file.length()));
         while(true){}
 
     }

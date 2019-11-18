@@ -14,11 +14,13 @@ public class PeerChunkInfo {
 
     public PeerChunkInfo(File file, FileInfo fileInfo){
          this.fileInfo = fileInfo;
-         long preciseChunks = file.length() / 1024;
+         double chunkSize = 1024;
+         double preciseChunks = file.length() / chunkSize;
          int chunks;
          if(fileInfo.getLength() == file.length()) chunks = (int) Math.ceil(preciseChunks);
          else chunks = (int) Math.floor(preciseChunks);
          this.chunks = new ArrayList<Integer>();
+         System.out.println("Chunk Length " + chunks + "!!!!!!");
          for(int i = 0; i < chunks; i++){
              this.chunks.add(i);
          }

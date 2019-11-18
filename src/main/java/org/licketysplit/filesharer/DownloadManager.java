@@ -14,7 +14,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class DownloadManager extends Thread{
+public class DownloadManager {
 
     private AssemblingFile assemblingFile;
     private HashMap<UserInfo, PeerDownloadInfo> peers;
@@ -23,9 +23,12 @@ public class DownloadManager extends Thread{
     private Environment env;
     private ReentrantLock lock;
     private Random r;
+    private Thread assemblingThread;
 
     public DownloadManager(FileInfo fileInfo, Environment env) throws IOException {
         this.assemblingFile = new AssemblingFile(fileInfo, env, this.getLengthInChunks(fileInfo));
+        this.assemblingThread = new Thread(assemblingFile);
+        this.assemblingThread.start();
         this.availableChunks = new ArrayList<Integer>();
         this.peers = new HashMap<UserInfo, PeerDownloadInfo>();
         this.completedChunks = new ArrayList<Integer>();
@@ -40,7 +43,8 @@ public class DownloadManager extends Thread{
     }
 
     private int getLengthInChunks(FileInfo fileInfo){
-        long preciseChunks = fileInfo.getLength() / 1024;
+        double chunkLength = 1024.0;
+        double preciseChunks = fileInfo.getLength() / chunkLength;
         return (int) Math.ceil(preciseChunks);
     }
 
@@ -58,7 +62,7 @@ public class DownloadManager extends Thread{
         int chunk = -1;
         PeerDownloadInfo peer = this.getPeers().get(userInfo);
 
-        this.lock.lock(); //Lock so no concurrency issues
+        this.lock.lock(); // Lock so no concurrency issues
         try {
             chunk = peer.getRandomDesirableChunk(this.availableChunks);
             if(chunk < 0) return; // TODO(will) Maybe update available chunks at this point
