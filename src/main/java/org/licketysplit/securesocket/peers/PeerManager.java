@@ -103,6 +103,16 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         addPeer(initialPeer);
     }
 
+    public void start() throws Exception {
+        listenInNewThread();
+
+        Map<String, PeerInfoDirectory.PeerInfo> peers = env.getInfo().getPeers();
+        for (Map.Entry<String, PeerInfoDirectory.PeerInfo> peer : peers.entrySet()) {
+            PeerAddress address = peer.getValue().convertToPeerAddress();
+            addPeer(address);
+        }
+    }
+
     public void confirmPeer(UserInfo user, SecureSocket sock) throws Exception {
         synchronized (peers) {
             SecureSocket oldVal = peers.putIfAbsent(user, sock);

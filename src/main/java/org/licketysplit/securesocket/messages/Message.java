@@ -12,5 +12,6 @@ public abstract class Message {
     public boolean doesActivateEncryption() {
         return shouldActivateEncryption;
     }
+
     private boolean shouldActivateEncryption = false;
 }

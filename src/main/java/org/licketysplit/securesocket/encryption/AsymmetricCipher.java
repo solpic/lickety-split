@@ -21,6 +21,14 @@ public class AsymmetricCipher {
         cipher.init(Cipher.ENCRYPT_MODE, key);
     }
 
+    public void setPrivateKey(byte[] keyBytes) throws Exception {
+        PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(keyBytes);
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        PrivateKey key = keyFactory.generatePrivate(spec);
+        cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+        cipher.init(Cipher.DECRYPT_MODE, key);
+    }
+
     public void setPrivateKey(PrivateKey key) throws Exception {
         cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
         cipher.init(Cipher.DECRYPT_MODE, key);

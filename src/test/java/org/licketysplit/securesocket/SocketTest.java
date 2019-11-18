@@ -1,6 +1,5 @@
 package org.licketysplit.securesocket;
 
-import org.junit.Test;
 
 import java.nio.charset.Charset;
 import java.util.Random;

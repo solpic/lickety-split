@@ -1,6 +1,6 @@
 package org.licketysplit.securesocket;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.licketysplit.env.Environment;
 import org.licketysplit.securesocket.encryption.AsymmetricCipher;
 import org.licketysplit.securesocket.encryption.SymmetricCipher;
