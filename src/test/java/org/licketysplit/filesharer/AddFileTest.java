@@ -32,9 +32,17 @@ public class AddFileTest{
         PeerManager.PeerAddress peer = new PeerManager.PeerAddress("localhost", testPort, user, serverInfo);
         class ServerThread extends Thread {
             public void run() {
+                if(currFolder == 3){
+                    try {
+                        System.out.println("Sleeping 3");
+                        Thread.sleep(5000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
                 Random rand = new Random();
                 String username = "merrill-";
-                username += Integer.toString(rand.nextInt(1000));
+                username += Integer.toString(rand.nextInt(5000));
                 PeerManager pm = new PeerManager();
                 FileManager fm = new FileManager();
                 SyncManager sm = new SyncManager();
@@ -55,6 +63,9 @@ public class AddFileTest{
                     pm.listenInNewThread();
                     env.getLogger().log(Level.INFO, "Sending update");
                     sm.addFile(System.getProperty("user.home") + "/2.png");
+                    if(currFolder == 3){
+                        System.out.println("AWAKE: " + username);
+                    }
                     while(true){}
 
                 } catch(Exception e) {
@@ -64,7 +75,7 @@ public class AddFileTest{
             }
         }
 
-        for(int i = 0; i<4; i++) {
+        for(int i = 0; i<5; i++) {
             ServerThread serverThread = new ServerThread();
             serverThread.start();
         }
@@ -81,6 +92,8 @@ public class AddFileTest{
         Thread.sleep(3000);
         File file = new File(System.getProperty("user.home") + "/2.png");
         fs.download(new FileInfo("2.png", false, (int) file.length()));
+
+        // Thread.sleep(10000)
         while(true){}
 
     }

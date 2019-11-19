@@ -3,8 +3,6 @@ import org.licketysplit.env.Environment;
 import org.licketysplit.syncmanager.FileInfo;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -12,10 +10,9 @@ public class AssemblingFile implements Runnable{
 
     private FileInfo fileInfo;
     private int lengthInChunks;
-    private ArrayList<Integer> completedChunks = new ArrayList<Integer>();
+    private int numOfChunks;
     private Environment env;
     private RandomAccessFile file;
-    private boolean isFinished;
     private BlockingQueue<Chunk> chunks;
 
 
@@ -23,11 +20,11 @@ public class AssemblingFile implements Runnable{
         this.env = env;
         this.fileInfo = fileInfo;
         this.lengthInChunks = lengthInChunks;
+        this.numOfChunks = 0;
         File temp = new File(this.env.getFM().getSharedDirectoryPath(fileInfo.name));
         temp.createNewFile();
         this.file = new RandomAccessFile(temp, "rw");
         this.file.setLength(fileInfo.getLength()); // Set file length to desired file's length
-        this.isFinished = false;
         this.chunks = new LinkedBlockingQueue<Chunk>();
     }
 
@@ -43,9 +40,13 @@ public class AssemblingFile implements Runnable{
             while (true) {
                 chunk = this.chunks.take();
                 if (chunk != null) {
-                    System.out.println("WRITING CHUNK: " + chunk.chunk);
+                    if(chunk.chunk == -1) break; //Download canceled
                     this.file.seek(chunk.chunk * 1024);
                     this.file.write(chunk.bytes);
+                }
+                if(this.chunks.isEmpty() && this.numOfChunks == this.lengthInChunks){
+                    System.out.println("FINISHED AND BREAK");
+                    break;
                 }
             }
         } catch (InterruptedException | IOException e) {
@@ -55,12 +56,17 @@ public class AssemblingFile implements Runnable{
 
     public boolean saveChunk(byte[] data, int chunk){
         this.chunks.add(new Chunk(data, chunk));
-        if (this.isFinished) return true;
+        this.numOfChunks++;
+        if (this.numOfChunks == this.lengthInChunks){
+            System.out.println("FINISHED");
+            return true;
+        }
+
         return false;
 
     }
 
-    private void writeChunkToFile(byte[] data, int chunk) throws IOException{
-
+    public void cancel(){
+        this.chunks.add(new Chunk(new byte[0], -1)); //Add "poison pill" to blocking queue
     }
 }

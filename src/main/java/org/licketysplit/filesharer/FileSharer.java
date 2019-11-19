@@ -39,12 +39,14 @@ public class FileSharer {
         }
     }
 
-    public void download(FileInfo fileInfo) throws Exception {
+    public DownloadManager download(FileInfo fileInfo) throws Exception {
         DownloadManager dManager = new DownloadManager(fileInfo, this.env);
         ConcurrentHashMap<UserInfo, SecureSocket> peers = this.env.getPm().getPeers();
         for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
             //log the chunks they have and send download request if applicable
             peer.getValue().sendFirstMessage(new ChunkAvailabilityRequest(fileInfo), new ChunkAvailabilityRequestHandler(dManager, peer.getKey()));
         }
+
+        return dManager; // So UI has access to download manager (primarily for cancellation)
     }
 }

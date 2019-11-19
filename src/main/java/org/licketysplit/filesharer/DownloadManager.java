@@ -1,5 +1,6 @@
 package org.licketysplit.filesharer;
 import org.licketysplit.env.Environment;
+import org.licketysplit.filesharer.messages.ChunkAvailabilityRequest;
 import org.licketysplit.filesharer.messages.ChunkDownloadRequest;
 import org.licketysplit.filesharer.messages.ChunkDownloadResponse;
 import org.licketysplit.securesocket.SecureSocket;
@@ -24,6 +25,8 @@ public class DownloadManager {
     private ReentrantLock lock;
     private Random r;
     private Thread assemblingThread;
+    private int updateAfterTwenty;
+    private boolean isCanceled;
 
     public DownloadManager(FileInfo fileInfo, Environment env) throws IOException {
         this.assemblingFile = new AssemblingFile(fileInfo, env, this.getLengthInChunks(fileInfo));
@@ -36,6 +39,8 @@ public class DownloadManager {
         this.lock = new ReentrantLock();
         this.r = new Random();
         this.r.setSeed(System.currentTimeMillis());
+        this.updateAfterTwenty = 0;
+        this.isCanceled = false;
     }
 
     public AssemblingFile getAssemblingFile() {
@@ -59,6 +64,7 @@ public class DownloadManager {
     }
 
     public void requestRandomChunk(UserInfo userInfo) throws Exception {
+        if(isCanceled) return;
         int chunk = -1;
         PeerDownloadInfo peer = this.getPeers().get(userInfo);
 
@@ -71,17 +77,26 @@ public class DownloadManager {
             this.lock.unlock();
         }
 
-        if(peer == null){
-            System.out.println("No peer found");
-        }
         this.sendDownloadRequest(chunk, userInfo, peer);
-        // this.updatePeerList();
+        if(this.updateAfterTwenty == 20) {
+            this.updateAfterTwenty = 0;
+            this.updatePeerList();
+        } else {
+            this.updateAfterTwenty++;
+        }
     }
 
-    public void updatePeerList(){
+    public void updatePeerList() throws Exception {
         ConcurrentHashMap<UserInfo, SecureSocket> peers = this.env.getPm().getPeers();
-        //TODO(WILL)
-        //Figure out if we need updatePeerList then implement it if necessary
+        Set<UserInfo> newPeers = new HashSet<UserInfo>(peers.keySet());
+        Set<UserInfo> currPeers = new HashSet(this.getPeers().keySet());
+        newPeers.removeAll(currPeers);
+        Iterator<UserInfo> newPeer = newPeers.iterator();
+        while(newPeer.hasNext()){
+            UserInfo currPeer = newPeer.next();
+            System.out.println("UPDATING: " + newPeer.toString());
+            peers.get(newPeer.next()).sendFirstMessage(new ChunkAvailabilityRequest(this.assemblingFile.getFileInfo()), new FileSharer.ChunkAvailabilityRequestHandler(this, currPeer));
+        }
     }
 
     public void sendDownloadRequest(int chunk, UserInfo userInfo, PeerDownloadInfo peer) throws Exception {
@@ -105,6 +120,11 @@ public class DownloadManager {
         this.availableChunks = new ArrayList<Integer>(chunks);
     }
 
+    public void cancelDownload(){
+        this.assemblingFile.cancel();
+        this.isCanceled = true;
+    }
+
     public static class ChunkDownloadRequestHandler implements MessageHandler {
         public PeerDownloadInfo peer;
         public int chunk;
@@ -119,6 +139,7 @@ public class DownloadManager {
 
         @Override
         public void handle(ReceivedMessage m) throws Exception {
+            //If error add chunk back to availableChunks.
             ChunkDownloadResponse decodedMessage = m.getMessage();
             boolean isFinished = this.dManager.getAssemblingFile().saveChunk(decodedMessage.data, this.chunk);
             this.dManager.onChunkCompleted(this.chunk, this.userInfo, isFinished);
