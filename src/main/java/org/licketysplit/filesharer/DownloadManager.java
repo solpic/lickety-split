@@ -91,11 +91,10 @@ public class DownloadManager {
         Set<UserInfo> newPeers = new HashSet<UserInfo>(peers.keySet());
         Set<UserInfo> currPeers = new HashSet(this.getPeers().keySet());
         newPeers.removeAll(currPeers);
-        Iterator<UserInfo> newPeer = newPeers.iterator();
-        while(newPeer.hasNext()){
-            UserInfo currPeer = newPeer.next();
-            System.out.println("UPDATING: " + newPeer.toString());
-            peers.get(newPeer.next()).sendFirstMessage(new ChunkAvailabilityRequest(this.assemblingFile.getFileInfo()), new FileSharer.ChunkAvailabilityRequestHandler(this, currPeer));
+        ArrayList<UserInfo> newPeersLs = new ArrayList<UserInfo>(newPeers);
+        for (UserInfo peer: newPeersLs) {
+            System.out.println("UPDATING: " + peer.toString());
+            peers.get(peer).sendFirstMessage(new ChunkAvailabilityRequest(this.assemblingFile.getFileInfo()), new FileSharer.ChunkAvailabilityRequestHandler(this, peer));
         }
     }
 

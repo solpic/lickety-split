@@ -45,7 +45,6 @@ public class AssemblingFile implements Runnable{
                     this.file.write(chunk.bytes);
                 }
                 if(this.chunks.isEmpty() && this.numOfChunks == this.lengthInChunks){
-                    System.out.println("FINISHED AND BREAK");
                     break;
                 }
             }
@@ -58,7 +57,6 @@ public class AssemblingFile implements Runnable{
         this.chunks.add(new Chunk(data, chunk));
         this.numOfChunks++;
         if (this.numOfChunks == this.lengthInChunks){
-            System.out.println("FINISHED");
             return true;
         }
 

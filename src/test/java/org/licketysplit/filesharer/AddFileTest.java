@@ -15,12 +15,6 @@ import java.util.logging.Level;
 
 public class AddFileTest{
 
-    static int currFolder;
-
-    static {
-        currFolder = 0;
-    }
-
     @Test
     public void addFileWorks() throws Exception {
 
@@ -31,8 +25,14 @@ public class AddFileTest{
         UserInfo user = new UserInfo("merrill", serverInfo);
         PeerManager.PeerAddress peer = new PeerManager.PeerAddress("localhost", testPort, user, serverInfo);
         class ServerThread extends Thread {
+            private int currFolder;
+
+            public ServerThread(int currFolder){
+                this.currFolder = currFolder;
+            }
+
             public void run() {
-                if(currFolder == 3){
+                if(this.currFolder == 0){
                     try {
                         System.out.println("Sleeping 3");
                         Thread.sleep(5000);
@@ -54,16 +54,16 @@ public class AddFileTest{
                 }
                 Environment env = new Environment(new UserInfo(username, server), pm);
                 env.getLogger().log(Level.INFO, "Server is: "+env.getUserInfo().getServer().getPort());
-                String directory =  "Test" + currFolder;
-                currFolder++;
-                String configs = "configs" + currFolder;
+                String directory =  "Test" + this.currFolder;
+                this.currFolder++;
+                String configs = "configs" + this.currFolder;
                 initialize(env, fs, fm, pm, sm, directory, configs);
                 try {
                     pm.initialize(peer);
                     pm.listenInNewThread();
                     env.getLogger().log(Level.INFO, "Sending update");
                     sm.addFile(System.getProperty("user.home") + "/2.png");
-                    if(currFolder == 3){
+                    if(this.currFolder == 0){
                         System.out.println("AWAKE: " + username);
                     }
                     while(true){}
@@ -76,7 +76,7 @@ public class AddFileTest{
         }
 
         for(int i = 0; i<5; i++) {
-            ServerThread serverThread = new ServerThread();
+            ServerThread serverThread = new ServerThread(i);
             serverThread.start();
         }
         FileManager fm = new FileManager();
