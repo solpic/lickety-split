@@ -19,7 +19,7 @@ public class DownloadManager {
 
     private AssemblingFile assemblingFile;
     private HashMap<UserInfo, PeerDownloadInfo> peers;
-    private ArrayList<Integer> availableChunks;
+    private ArrayList<Integer> necessaryAndAvailableChunks;
     private ArrayList<Integer> completedChunks;
     private Environment env;
     private ReentrantLock lock;
@@ -32,7 +32,7 @@ public class DownloadManager {
         this.assemblingFile = new AssemblingFile(fileInfo, env, this.getLengthInChunks(fileInfo));
         this.assemblingThread = new Thread(assemblingFile);
         this.assemblingThread.start();
-        this.availableChunks = new ArrayList<Integer>();
+        this.necessaryAndAvailableChunks = new ArrayList<Integer>();
         this.peers = new HashMap<UserInfo, PeerDownloadInfo>();
         this.completedChunks = new ArrayList<Integer>();
         this.env = env;
@@ -65,14 +65,17 @@ public class DownloadManager {
 
     public void requestRandomChunk(UserInfo userInfo) throws Exception {
         if(isCanceled) return;
+
         int chunk = -1;
         PeerDownloadInfo peer = this.getPeers().get(userInfo);
 
+        if(peer == null) return;
+
         this.lock.lock(); // Lock so no concurrency issues
         try {
-            chunk = peer.getRandomDesirableChunk(this.availableChunks);
+            chunk = peer.getRandomDesirableChunk(this.necessaryAndAvailableChunks);
             if(chunk < 0) return; // TODO(will) Maybe update available chunks at this point
-            this.availableChunks.remove(Integer.valueOf(chunk));
+            this.necessaryAndAvailableChunks.remove(Integer.valueOf(chunk));
         } finally {
             this.lock.unlock();
         }
@@ -93,7 +96,6 @@ public class DownloadManager {
         newPeers.removeAll(currPeers);
         ArrayList<UserInfo> newPeersLs = new ArrayList<UserInfo>(newPeers);
         for (UserInfo peer: newPeersLs) {
-            System.out.println("UPDATING: " + peer.toString());
             peers.get(peer).sendFirstMessage(new ChunkAvailabilityRequest(this.assemblingFile.getFileInfo()), new FileSharer.ChunkAvailabilityRequestHandler(this, peer));
         }
     }
@@ -112,11 +114,11 @@ public class DownloadManager {
 
     public void updateAvailableChunks(PeerChunkInfo peerChunkInfo){
         ArrayList<Integer> newChunks = peerChunkInfo.getChunks();
-        Set<Integer> chunks = new HashSet<Integer>(this.availableChunks);
+        Set<Integer> chunks = new HashSet<Integer>(this.necessaryAndAvailableChunks);
         for(int i = 0; i < newChunks.size(); i++){
             chunks.add(newChunks.get(i));
         }
-        this.availableChunks = new ArrayList<Integer>(chunks);
+        this.necessaryAndAvailableChunks = new ArrayList<Integer>(chunks);
     }
 
     public void cancelDownload(){
