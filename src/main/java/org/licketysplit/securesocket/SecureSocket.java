@@ -127,17 +127,27 @@ public class SecureSocket {
 
 
 
-
+    public static class ConnectionError extends Exception {
+        public ConnectionError(String e) {
+            super(e);
+        }
+    }
 
     public static SecureSocket connect(PeerManager.PeerAddress peer, Environment env) throws Exception {
-        String ip = peer.getServerInfo().getIp();
-        int port = peer.getServerInfo().getPort();
-        //env.getLogger().log(Level.INFO,"Attempting to connect to IP: "+ip+", port: "+port);
-        Socket clientSocket = new Socket(ip, port);
-        DataOutputStream output = new DataOutputStream(clientSocket.getOutputStream());
-        DataInputStream input = new DataInputStream(clientSocket.getInputStream());
-        //env.getLogger().log(Level.INFO,"Connected to IP: "+ip+", port: "+port);
-        return new SecureSocket(clientSocket, output, input, env, peer.getUser(), null);
+        try {
+            String ip = peer.getServerInfo().getIp();
+            int port = peer.getServerInfo().getPort();
+            env.getLogger().log(Level.INFO, "Attempting to connect to IP: " + ip + ", port: " + port);
+            Socket clientSocket = new Socket(ip, port);
+            DataOutputStream output = new DataOutputStream(clientSocket.getOutputStream());
+            DataInputStream input = new DataInputStream(clientSocket.getInputStream());
+            env.getLogger().log(Level.INFO, "Connected to IP: " + ip + ", port: " + port);
+            return new SecureSocket(clientSocket, output, input, env, peer.getUser(), null);
+        } catch(Exception e) {
+            e.printStackTrace();
+            throw new ConnectionError(String.format("%s: Error connecting to IP: %s, port: %d",
+                    env.getUserInfo().getUsername(), peer.getServerInfo().getIp(), peer.getServerInfo().getPort()));
+        }
     }
     //</editor-fold>
 

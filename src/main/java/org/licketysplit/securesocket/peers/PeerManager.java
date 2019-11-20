@@ -113,7 +113,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
             if(oldVal==null) {
                 sock.setUserInfo(user);
                 peerConfirmed(user, sock);
-                logPeerList();
+                //logPeerList();
             }
         }
     }
@@ -169,7 +169,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         env.getDebug().trigger("handshaking");
         SecurityHandshake.SendPublicKeyMessage msg = m.getMessage();
         String toUser = msg.getUsername();
-        m.getEnv().getLogger().log(Level.INFO, "Receiving public key from "+toUser+", generating symmetric key and sending");
+        m.getEnv().getLogger().log(Level.INFO, "Server beginning handshake with "+toUser);
         AsymmetricCipher encryptor = new AsymmetricCipher();
         encryptor.setPublicKey(msg.getKey());
 
@@ -180,12 +180,12 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
 
         byte[] encryptedKey = encryptor.encrypt(symmetricKey.getKey().getEncoded());
         byte[] encryptedIv = encryptor.encrypt(symmetricKey.getIv());
-        m.getEnv().getLogger().log(
-                Level.INFO, String.format("Sending KEY to %s: %s, IV: %s\n",
-                        toUser,
-                        Base64.getEncoder().encodeToString(symmetricKey.getKey().getEncoded()),
-                        Base64.getEncoder().encodeToString(symmetricKey.getIv())));
-        env.getDebug().trigger("handshaking");
+//        m.getEnv().getLogger().log(
+//                Level.INFO, String.format("Sending KEY to %s: %s, IV: %s",
+//                        toUser,
+//                        Base64.getEncoder().encodeToString(symmetricKey.getKey().getEncoded()),
+//                        Base64.getEncoder().encodeToString(symmetricKey.getIv())));
+//        env.getDebug().trigger("handshaking");
 
 
 
@@ -200,18 +200,18 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
 
         // NEXT MESSAGE
         // Exchange user ids
-        log.log(Level.INFO, "Waiting for user id message");
+       // log.log(Level.INFO, "Waiting for user id message");
         ReceivedMessage userIdMessage = m.respondAndWait(nMsg);
 
         UserInfo.UserIDMessage userId = userIdMessage.getMessage();
         String username = userId.getUserInfo().getUsername();
         if(env.getInfo().getPeers().get(username)==null) {
-            log.log(Level.INFO, "Unknown username '"+username+"', attempting to add and verify");
+            //log.log(Level.INFO, "Unknown username '"+username+"', attempting to add and verify");
             env.getInfo().newPeerAndConfirm(userId.getPeerInfo());
             env.getInfo().save();
         }
         userIdMessage.getEnv().getDebug().trigger("handshaking");
-        m.getEnv().getLogger().log(Level.INFO, "Receiving INITIAL handshake ID");
+        //m.getEnv().getLogger().log(Level.INFO, "Receiving INITIAL handshake ID");
         m.getConn().setServerInfo(userId.getUserInfo().getServer());
 
         m = userIdMessage.respondAndWait(new UserInfo.UserIDMessage(userIdMessage.getEnv().getUserInfo(), env.getInfo().myInfo(env)));
@@ -232,7 +232,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         idConfirmResponse.val().put("plaintext", myCipher.decrypt(ciphertext));
         idConfirmResponse.val().put("ciphertext", cipher.encrypt(plaintext));
 
-        log.log(Level.INFO, "Sending ID confirm response and checking their ID");
+        //log.log(Level.INFO, "Sending ID confirm response and checking their ID");
         m = m.respondAndWait(idConfirmResponse);
         MapMessage idConfirm = m.getMessage();
         if(!keysEqual(plaintext, Base64.getDecoder().decode((String)idConfirm.val().get("plaintext")))) {
@@ -240,13 +240,14 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         }
 
 
+        m.getEnv().getLogger().log(Level.INFO, "Server ending handshake with "+toUser);
         m.getEnv().getPm().confirmPeer(userId.getUserInfo(), m.getConn());
     }
 
     void newConnectionHandlerClient(SecureSocket sock) throws Exception {
         // NEXT MESSAGE
         // SEND PUBLIC KEY
-        log.log(Level.INFO, "Generating keypair and sending public key");
+        log.log(Level.INFO, "Client starting handshake");
         env.getDebug().trigger("handshaking");
         AsymmetricCipher decryptor = new AsymmetricCipher();
         KeyPair keyPair = decryptor.generateKeyPair();
@@ -261,18 +262,18 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         // NEXT MESSAGE
         // RECEIVE SYMMETRIC KEY
         env.getDebug().trigger("handshaking");
-        log.log(Level.INFO, "Received symmetric key, starting user handshake");
+       // log.log(Level.INFO, "Received symmetric key, starting user handshake");
         SecurityHandshake.SendSymmetricKeyMessage msg = m.getMessage();
 
         String toUser = msg.getUsername();
         byte[] key = decryptor.decrypt(msg.getEncryptedKey());
         byte[] iv = decryptor.decrypt(msg.getEncryptedIv());
 
-        log.log(
-                Level.INFO, String.format("Received KEY from: %s, Key: %s, IV: %s\n",
-                        toUser,
-                        Base64.getEncoder().encodeToString(key),
-                        Base64.getEncoder().encodeToString(iv)));
+//        log.log(
+//                Level.INFO, String.format("Received KEY from: %s, Key: %s, IV: %s",
+//                        toUser,
+//                        Base64.getEncoder().encodeToString(key),
+//                        Base64.getEncoder().encodeToString(iv)));
 
         SymmetricCipher symmetricCipher = new SymmetricCipher();
         symmetricCipher.setKey(key, iv);
@@ -282,14 +283,14 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         // NEXT MESSAGE
         // SEND USER INFO
         ReceivedMessage userIdResponse = m.respondAndWait(new UserInfo.UserIDMessage(env.getUserInfo(), env.getInfo().myInfo(env)));
-        log.log(Level.INFO, "Received user ID");
+        //log.log(Level.INFO, "Received user ID");
         env.getDebug().trigger("handshaking");
         UserInfo.UserIDMessage userInfoMsg = userIdResponse.getMessage();
 
         String username = userInfoMsg.getUserInfo().getUsername();
 
         if(env.getInfo().getPeers().get(username)==null) {
-            log.log(Level.INFO, "Unknown username '"+username+"', attempting to add and verify");
+       //     log.log(Level.INFO, "Unknown username '"+username+"', attempting to add and verify");
             env.getInfo().newPeerAndConfirm(userInfoMsg.getPeerInfo());
             env.getInfo().save();
         }
@@ -306,7 +307,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
 
         idConfirm.val().put("ciphertext", cipher.encrypt(plaintext));
 
-        log.log(Level.INFO, "Checking their ID");
+        //log.log(Level.INFO, "Checking their ID");
         ReceivedMessage theirIdConfirm = userIdResponse.respondAndWait(idConfirm);
         MapMessage idConfirmResponse = theirIdConfirm.getMessage();
 
@@ -320,9 +321,10 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         MapMessage confirmMyId = new MapMessage();
         confirmMyId.val().put("plaintext", myCipher.decrypt(ciphertext));
 
-        log.log(Level.INFO, "Verifying own ID");
+        //log.log(Level.INFO, "Verifying own ID");
         theirIdConfirm.respond(confirmMyId, null);
 
+        log.log(Level.INFO, "Client ending handshake with "+username);
         m.getEnv().getPm().confirmPeer(userInfoMsg.getUserInfo(), userIdResponse.getConn());
     }
 

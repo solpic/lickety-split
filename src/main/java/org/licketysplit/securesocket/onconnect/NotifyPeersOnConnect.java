@@ -15,7 +15,7 @@ import java.util.logging.Level;
 public class NotifyPeersOnConnect implements NewConnectionHandler {
     @Override
     public void connectionConfirmed(UserInfo user, SecureSocket sock, Environment env) throws Exception {
-        env.getLogger().log(Level.INFO, "Sending new peer connection notification");
+        //env.getLogger().log(Level.INFO, "Sending new peer connection notification");
         env.getPm().messageAllPeers(new NewPeerConnectedNotification(sock.getPeerAddress()), null);
     }
 
@@ -25,7 +25,7 @@ public class NotifyPeersOnConnect implements NewConnectionHandler {
         @Override
         public void handle(ReceivedMessage m) throws Exception {
             EnvLogger log = m.getEnv().getLogger();
-            log.log(Level.INFO, "Received new peer connection notification");
+            //log.log(Level.INFO, "Received new peer connection notification");
             NewPeerConnectedNotification msg = m.getMessage();
             m.getEnv().getPm().addPeer(msg.getPeer());
         }

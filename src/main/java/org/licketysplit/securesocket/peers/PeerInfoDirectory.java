@@ -20,6 +20,35 @@ public class PeerInfoDirectory {
     byte[] rootKey;
 
 
+    // Syncs two info directories, updating where necessary
+    // Returns true if changes were made
+    public boolean syncInfo(PeerInfoDirectory theirs) throws Exception {
+        boolean changed = false;
+        for (Map.Entry<String, PeerInfo> peerInfoEntry : theirs.getPeers().entrySet()) {
+            PeerInfo theirPeerInfo = peerInfoEntry.getValue();
+            String username = peerInfoEntry.getKey();
+
+            boolean shouldUpdate = false;
+            boolean shouldReplace = false;
+            synchronized (peers) {
+                if (!peers.containsKey(username)) {
+                    shouldUpdate = true;
+                }else{
+                    shouldReplace = true;
+                    PeerInfo myPeerInfo = peers.get(username);
+                    if(theirPeerInfo.getTimestamp().compareTo(myPeerInfo.getTimestamp())>0) {
+                        shouldUpdate = true;
+                    }
+                }
+            }
+            if(shouldUpdate) {
+                updatePeer(theirPeerInfo, true);
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
     public static SignedPayload generateNewUserConfirm(String username, byte[] identityKey, byte[] rootKey) throws Exception{
         SignedPayload.Signer signer = new SignedPayload.Signer(rootKey);
         byte[] payload = newUserConfirmPayload(username, identityKey);
@@ -31,6 +60,23 @@ public class PeerInfoDirectory {
         verifier.verify(signed);
         byte[] payload = newUserConfirmPayload(username, identityKey);
         byte[] theirPayload = signed.getPayload();
+
+        if(payload.length!=theirPayload.length) throw new Exception();
+        for (int i = 0; i < payload.length; i++) {
+            if(payload[i]!=theirPayload[i]) throw new Exception();
+        }
+    }
+
+    public static SignedPayload generateBan(String username, byte[] rootKey) throws Exception {
+        SignedPayload.Signer signer = new SignedPayload.Signer(rootKey);
+        return signer.sign(username.getBytes());
+    }
+
+    public static void verifyBanConfirm(String username, SignedPayload banConfirm, byte[] rootKey) throws Exception {
+        SignedPayload.Verifier verifier = new SignedPayload.Verifier(rootKey);
+        verifier.verify(banConfirm);
+        byte[] payload = username.getBytes();
+        byte[] theirPayload = banConfirm.getPayload();
 
         if(payload.length!=theirPayload.length) throw new Exception();
         for (int i = 0; i < payload.length; i++) {
@@ -131,6 +177,15 @@ public class PeerInfoDirectory {
         String serverPort;
 
         Date timestamp;
+        BanInfo ban;
+
+        public BanInfo getBan() {
+            return ban;
+        }
+
+        public void setBan(BanInfo ban) {
+            this.ban = ban;
+        }
 
         public Date getTimestamp() {
             return timestamp;
@@ -142,15 +197,15 @@ public class PeerInfoDirectory {
 
         public static class BanInfo {
             // Message used to verify the ban message came from root
-            Object banConfirmation;
+            SignedPayload banConfirmation;
             // List of users who have confirmed the ban, for tracking purposes
             List<String> confirmedBans;
 
-            public Object getBanConfirmation() {
+            public SignedPayload getBanConfirmation() {
                 return banConfirmation;
             }
 
-            public void setBanConfirmation(Object banConfirmation) {
+            public void setBanConfirmation(SignedPayload banConfirmation) {
                 this.banConfirmation = banConfirmation;
             }
 
@@ -189,15 +244,48 @@ public class PeerInfoDirectory {
         }
     }
 
-    public void newPeerAndConfirm(PeerInfo peer) throws Exception {
+    public void newPeerCallback(PeerInfo peer) throws Exception {
+
+    }
+
+    public void banPeerCallback(PeerInfo peer) throws Exception {
+
+    }
+
+    public void newPeerAndBanCallback(PeerInfo peer) throws Exception {
+
+    }
+
+    public void updatePeer(PeerInfo peer, boolean shouldReplace) throws Exception {
         synchronized (peers) {
+            boolean willReplace = false;
             if(peers.containsKey(peer.getUsername())) {
-                throw new Exception("Peer username collision");
+                if(shouldReplace) {
+                    willReplace = true;
+                }else {
+                    throw new Exception("Peer username collision");
+                }
             }
 
             verifyNewUserConfirm(peer.getUsername(), peer.getIdentityKey(), peer.getNewUserConfirmation(), getRootKey());
+            boolean banned = false;
+            if(peer.getBan()!=null) {
+                verifyBanConfirm(peer.getUsername(), peer.getBan().getBanConfirmation(), getRootKey());
+                banned = true;
+            }
             peers.put(peer.getUsername(), peer);
+            if(!banned&&!willReplace) {
+                newPeerCallback(peer);
+            }else if(willReplace&&banned) {
+                banPeerCallback(peer);
+            }else if(!willReplace&&banned) {
+                newPeerAndBanCallback(peer);
+            }
         }
+    }
+
+    public void newPeerAndConfirm(PeerInfo peer) throws Exception {
+        updatePeer(peer, false);
     }
 
     public PeerInfoDirectory() {

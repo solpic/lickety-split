@@ -17,7 +17,7 @@ public class SyncPeerListOnConnect implements NewConnectionHandler {
     @Override
     public void connectionConfirmed(UserInfo user, SecureSocket sock, Environment env) throws Exception {
         EnvLogger logger = env.getLogger();
-        logger.log(Level.INFO, "Requesting peer list");
+        //logger.log(Level.INFO, "Requesting peer list");
 
         sock.sendFirstMessage(new GetPeerListRequest(), (ReceivedMessage m) -> {
             GetPeerListResponse lst = m.getMessage();
