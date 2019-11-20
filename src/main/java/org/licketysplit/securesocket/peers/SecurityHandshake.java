@@ -6,12 +6,22 @@ import org.licketysplit.securesocket.messages.Message;
 public class SecurityHandshake {
     public static class SendPublicKeyMessage extends JSONMessage {
         byte[] key;
+        String username;
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
+        }
 
         public SendPublicKeyMessage() {
         }
 
-        public SendPublicKeyMessage(byte[] key) {
+        public SendPublicKeyMessage(byte[] key, String username) {
             this.key = key;
+            this.username = username;
         }
 
         public byte[] getKey() {
@@ -23,21 +33,18 @@ public class SecurityHandshake {
         }
     }
 
-    public static class ReceivedSymmetricKeyMessage extends Message {
-
-        @Override
-        public byte[] toBytes() throws Exception {
-            return new byte[0];
-        }
-
-        @Override
-        public void fromBytes(byte[] data) throws Exception {
-
-        }
-    }
     public static class SendSymmetricKeyMessage extends JSONMessage {
         byte[] encryptedKey;
         byte[] encryptedIv;
+        String username;
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
+        }
 
         public byte[] getEncryptedKey() {
             return encryptedKey;
@@ -58,9 +65,10 @@ public class SecurityHandshake {
             this.encryptedIv = encryptedIv;
         }
 
-        public SendSymmetricKeyMessage(byte[] encryptedKey, byte[] iv) {
+        public SendSymmetricKeyMessage(byte[] encryptedKey, byte[] iv, String username) {
             this.encryptedKey = encryptedKey;
             this.encryptedIv = iv;
+            this.username = username;
         }
     }
 }

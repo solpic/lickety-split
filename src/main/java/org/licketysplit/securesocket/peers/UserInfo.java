@@ -6,6 +6,7 @@ import org.licketysplit.securesocket.messages.Message;
 public class UserInfo {
     public static class UserIDMessage extends JSONMessage {
         private UserInfo userInfo;
+        PeerInfoDirectory.PeerInfo peerInfo;
 
         public UserInfo getUserInfo() {
             return userInfo;
@@ -18,8 +19,17 @@ public class UserInfo {
         public UserIDMessage() {
         }
 
-        public UserIDMessage(UserInfo userInfo) {
+        public PeerInfoDirectory.PeerInfo getPeerInfo() {
+            return peerInfo;
+        }
+
+        public void setPeerInfo(PeerInfoDirectory.PeerInfo peerInfo) {
+            this.peerInfo = peerInfo;
+        }
+
+        public UserIDMessage(UserInfo userInfo, PeerInfoDirectory.PeerInfo peerInfo) {
             this.userInfo = userInfo;
+            this.peerInfo = peerInfo;
         }
     }
 

@@ -107,7 +107,7 @@ public class MessagingTest {
                     server = new PeerManager.ServerInfo(nextPort[0], "localhost");
                     nextPort[0]++;
                 }
-                Environment env = new Environment(new UserInfo(username, server), pm);
+                Environment env = new Environment(new UserInfo(username, server), pm, true);
                 pm.setEnv(env);
                 env.getLogger().log(Level.INFO, "Server is: "+env.getUserInfo().getServer().getPort());
                 try {
@@ -130,7 +130,7 @@ public class MessagingTest {
         }
 
         PeerManager pm = new PeerManager();
-        Environment env = new Environment(user, pm);
+        Environment env = new Environment(user, pm, true);
         pm.setEnv(env);
         pm.listen();
 

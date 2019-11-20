@@ -21,6 +21,7 @@ import java.util.Base64;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 
@@ -114,12 +115,12 @@ public class SecureSocket {
     public static void listen(int port, NewConnectionCallback fnc, Environment env) throws Exception {
         ServerSocket serverSocket = new ServerSocket(port);
         while(true) {
-            env.getLogger().log(Level.INFO,
-                    "Listening for new connection on port: "+port);
+            //env.getLogger().log(Level.INFO,
+            //        "Listening for new connection on port: "+port);
             Socket clientSocket = serverSocket.accept();
             DataOutputStream output = new DataOutputStream(clientSocket.getOutputStream());
             DataInputStream input = new DataInputStream(clientSocket.getInputStream());
-            env.getLogger().log(Level.INFO,"Accepting new connection");
+            //env.getLogger().log(Level.INFO,"Accepting new connection");
             fnc.onConnect(new SecureSocket(clientSocket, output, input, env, null, null));
         }
     }
@@ -131,11 +132,11 @@ public class SecureSocket {
     public static SecureSocket connect(PeerManager.PeerAddress peer, Environment env) throws Exception {
         String ip = peer.getServerInfo().getIp();
         int port = peer.getServerInfo().getPort();
-        env.getLogger().log(Level.INFO,"Attempting to connect to IP: "+ip+", port: "+port);
+        //env.getLogger().log(Level.INFO,"Attempting to connect to IP: "+ip+", port: "+port);
         Socket clientSocket = new Socket(ip, port);
         DataOutputStream output = new DataOutputStream(clientSocket.getOutputStream());
         DataInputStream input = new DataInputStream(clientSocket.getInputStream());
-        env.getLogger().log(Level.INFO,"Connected to IP: "+ip+", port: "+port);
+        //env.getLogger().log(Level.INFO,"Connected to IP: "+ip+", port: "+port);
         return new SecureSocket(clientSocket, output, input, env, peer.getUser(), null);
     }
     //</editor-fold>
@@ -157,6 +158,14 @@ public class SecureSocket {
             this.respondingToMessage = respondingToMessage;
         }
     }
+    public static class MessagingError extends Exception {
+        public MessagingError(String error) {
+            super(error);
+        }
+    }
+    public Environment getEnv() {
+        return env;
+    }
     private BlockingQueue<MessagePair> messages;
     private ConcurrentHashMap<Integer, MessageHandler> messageHandlers;
     private static ConcurrentHashMap<Integer, MessageHandler> defaultHandlers;
@@ -166,10 +175,13 @@ public class SecureSocket {
     final int headersSize = 4*4;
     class SocketReader implements Runnable {
 
+        ConcurrentLinkedQueue<Message> oldMessages;
         @Override
         public void run() {
+            oldMessages = new ConcurrentLinkedQueue<>();
             while(true) {
                 try {
+//                    log.log(Level.OFF, "Awaiting next message");
                     // Read message
 
 
@@ -180,16 +192,22 @@ public class SecureSocket {
                     Integer size = null;
                     byte[] payload = null;
 
+                    String username = env.getUserInfo().getUsername();
                     Integer headersSize = in.readInt();
+//                    log.log(Level.OFF, String.format("Read headers size: %d", headersSize));
 
                     byte[] headers = new byte[headersSize];
                     in.read(headers, 0, headersSize);
+                    byte[] oldHeaders = new byte[headersSize];
+                    for (int i = 0; i < headers.length; i++) {
+                        oldHeaders[i] = headers[i];
+                    }
 
                     byte[] headersFinal = null;
                     if(useEncryption) {
-                        log.log(Level.INFO,
-                                String.format("Ciphertext: %s",
-                                Base64.getEncoder().encodeToString(headers)));
+//                        log.log(Level.OFF,
+//                                String.format("Ciphertext: %s",
+//                                Base64.getEncoder().encodeToString(headers)));
                         headersFinal = cipher.decrypt(headers);
                     }else{
                         headersFinal = headers;
@@ -200,7 +218,13 @@ public class SecureSocket {
                     classCode = headersBuffer.getInt();
                     size = headersBuffer.getInt();
 
+                    if(responseId<0||myId<-1||classCode<0||size<0) {
+                        env.getLogger().log(Level.SEVERE, "Negative value");
+                        throw new MessagingError(String.format("For '%s', negative value from '%s'", env.getUserInfo().getUsername(),
+                                userInfo!=null?userInfo.getUsername():"unknown"));
+                    }
                     payload = new byte[size];
+//                    log.log(Level.OFF, String.format("Reading payload of size: %d", size));
                     in.read(payload, 0, size);
 
                     byte[] payloadFinal = null;
@@ -209,11 +233,12 @@ public class SecureSocket {
                     }else{
                         payloadFinal = payload;
                     }
-                    /*log.log(Level.INFO,
-                            String.format("Received message of size: %d, MyID: %d, ResponseID: %d, classcode: %d, name: %s",
-                            size, myId, responseId, classCode, messageCodes[classCode].getName()));
-                    */
-                    log.log(Level.INFO, new String(payloadFinal));
+//                    log.log(Level.OFF,
+//                            String.format(
+//                                    "Received message of \n\tsize: %d, \n\tMyID: %d, \n\tResponseID: %d, \n\tclasscode: %d, \n\tname: %s",
+//                            size, myId, responseId, classCode, messageCodes[classCode].getName()));
+
+                    //log.log(Level.INFO, new String(payloadFinal));
                     Message msg;// = Message.factory(classCode, payload);
                     msg = (Message)messageCodes[classCode].getConstructor().newInstance();
                     msg.fromBytes(payloadFinal);
@@ -223,9 +248,15 @@ public class SecureSocket {
                     }else{
                         messageHandler = defaultHandlers.get(classCode);
                     }
+                    oldMessages.add(msg);
+//                    log.log(Level.OFF, "Calling response handler");
                     messageHandler.handle(new ReceivedMessage(msg, SecureSocket.this, responseId, env));
+//                    log.log(Level.OFF, "Done calling response handler");
                 } catch (Exception e) {
                     log.log(Level.SEVERE,"Error in reader thread");
+                    try {
+                        throw new MessagingError("Error for " + env.getUserInfo().getUsername());
+                    }catch(Exception e2) {}
                     e.printStackTrace();
                 }
             }
@@ -248,9 +279,11 @@ public class SecureSocket {
                     Integer classCode = getOpCode(nextMessage.msg);
                     byte[] payload = nextMessage.msg.toBytes();
 
-                    //log.log(Level.INFO, String.format("Sending message with ID: %d, ResponseID: %d, Code: %d, Class: %s, Size: %d",
-                    //        id, nextMessage.respondingToMessage, classCode, messageCodes[classCode].getName(), payload.length));
 
+                    if(id<0||nextMessage.respondingToMessage<-1||classCode<0) {
+                        env.getLogger().log(Level.SEVERE, "Negative value");
+                        throw new MessagingError("Negative value");
+                    }
                     ByteBuffer headers = ByteBuffer.allocate(headersSize);
                     headers.putInt(id);
                     headers.putInt(nextMessage.respondingToMessage);
@@ -269,9 +302,15 @@ public class SecureSocket {
                     }else{
                         headersBytes = headers.array();
                     }
+
+//                    log.log(Level.OFF, String.format(
+//                            "Sending message with \n\tID: %d, \n\tResponseID: %d, \n\tCode: %d, \n\tClass: %s, \n\tSize: %d, \n\tUsing encryption: %b",
+//                            id, nextMessage.respondingToMessage, classCode, messageCodes[classCode].getName(), payload.length, useEncryption));
+
                     out.writeInt(headersBytes.length);
                     out.write(headersBytes);
                     out.write(payloadBytes);
+                    out.flush();
 
                     if(nextMessage.msg.doesActivateEncryption()) {
                         activateEncryption();
@@ -302,9 +341,9 @@ public class SecureSocket {
                 messageCodes =  messageTypes.toArray(new Class[messageTypes.size()]);
 
                 Arrays.sort(messageCodes, (Class a, Class b) -> a.getName().compareTo(b.getName()));
-                for (int i = 0; i < messageCodes.length; i++) {
-                    System.out.println(messageCodes[i].getName()+": "+i);
-                }
+                //for (int i = 0; i < messageCodes.length; i++) {
+                 //   System.out.println(messageCodes[i].getName()+": "+i);
+                //}
 
                 Set<Class<?>> handlers = reflections.getTypesAnnotatedWith(DefaultHandler.class);
                 for (Class<?> handler : handlers) {
@@ -367,6 +406,30 @@ public class SecureSocket {
 
         messageReaderThread.start();
         messageWriterThread.start();
+    }
+
+    public ReceivedMessage sendMessageAndWait(Message msg, Integer respondingTo) throws Exception {
+        final ReceivedMessage[] response = new ReceivedMessage[1];
+        Object lock = new Object();
+        sendMessage(msg,
+                (ReceivedMessage m) -> {
+                    response[0] = m;
+                    //log.log(Level.INFO, String.format("Message handler for type: %s", m.getMessage().getClass().getName()));
+                    synchronized(lock) {
+                        lock.notifyAll();
+                    }
+                }
+                , respondingTo);
+        synchronized(lock) {
+            lock.wait();
+            //log.log(Level.INFO, String.format("Unlocking for type: %s", response[0].getMessage().getClass().getName()));
+        }
+        return response[0];
+    }
+
+    public ReceivedMessage sendMessageAndWait(Message msg) throws Exception {
+        Integer respondingTo = -1;
+        return sendMessageAndWait(msg, respondingTo);
     }
 
     public void sendMessage(Message msg, MessageHandler handler, Integer respondingTo) throws Exception {

@@ -42,6 +42,10 @@ public class AsymmetricCipher {
         return cipher.doFinal(ciphertext);
     }
 
+    public static int idBlockSize() {
+        return 64;
+    }
+
     public KeyPair generateKeyPair() throws Exception {
         KeyPairGenerator rsa = KeyPairGenerator.getInstance("RSA");
         rsa.initialize(1024);

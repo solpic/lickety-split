@@ -21,6 +21,7 @@ public class Environment {
     KeyStore identityKey;
 
     PeerInfoDirectory info;
+    Debugger debug;
 
     public KeyStore getRootKey() {
         return rootKey;
@@ -32,6 +33,14 @@ public class Environment {
 
     public KeyStore getIdentityKey() {
         return identityKey;
+    }
+
+    public Debugger getDebug() {
+        return debug;
+    }
+
+    public void setDebug(Debugger debug) {
+        this.debug = debug;
     }
 
     public void setIdentityKey(KeyStore identityKey) {
@@ -46,10 +55,11 @@ public class Environment {
         this.info = info;
     }
 
-    public Environment(UserInfo userInfo, PeerManager pm) {
+    public Environment(UserInfo userInfo, PeerManager pm, boolean debugEnabled) {
         this.userInfo = userInfo;
         this.pm = pm;
         logger = new EnvLogger(userInfo.getUsername());
+        this.debug = new Debugger(debugEnabled);
     }
 
     public EnvLogger getLogger() {
