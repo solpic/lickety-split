@@ -94,6 +94,7 @@ public class TestNetworkManager {
 
         env.setIdentityKey(idKeyStore);
         env.setInfo(info);
+        info.env(env);
 
         return env;
     }
@@ -117,8 +118,9 @@ public class TestNetworkManager {
         rootKeyStore.setKey(rootKey);
 
         Integer port = nextPort();
+        String username = String.format("%s-%d", rootUser, port);
         PeerInfoDirectory.PeerInfo rootInfo = new PeerInfoDirectory.PeerInfo();
-        rootInfo.setUsername(rootUser);
+        rootInfo.setUsername(username);
         rootInfo.setServerIp("localhost");
         rootInfo.setServerPort(port.toString());
         rootInfo.setTimestamp(new Date());
@@ -129,21 +131,23 @@ public class TestNetworkManager {
         rootIdKeyFile.deleteOnExit();
         KeyStore rootIdKeyStore = new KeyStore(rootIdKeyFile.getPath());
         rootIdKeyStore.setKey(keys[1]);
-        rootInfo.setNewUserConfirmation(PeerInfoDirectory.generateNewUserConfirm(rootUser, keys[0], rootKeyStore.getKey()));
+        rootInfo.setNewUserConfirmation(PeerInfoDirectory.generateNewUserConfirm(username, keys[0], rootKeyStore.getKey()));
 
         info.newPeer(rootInfo);
 
 
         PeerManager.ServerInfo serverInfo = new PeerManager.ServerInfo(port, "localhost");
-        UserInfo user = new UserInfo(rootUser, serverInfo);
+        UserInfo user = new UserInfo(username, serverInfo);
         PeerManager pm = new PeerManager();
         Environment env = new Environment(user, pm, true);
-        File log = Paths.get(logPath.toString(), rootUser+".log").toFile();
+        File log = Paths.get(logPath.toString(), "ROOT"+".log").toFile();
         env.getLogger().setLogFile(log);
 
         pm.setEnv(env);
         env.setInfo(info);
         env.setIdentityKey(rootIdKeyStore);
+        env.setRootKey(rootKeyStore);
+        info.env(env);
 
         info.save();
         return env;

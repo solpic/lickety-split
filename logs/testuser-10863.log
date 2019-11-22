@@ -1,0 +1,187 @@
+[2019-11-20 18:40:57] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10371 
+[2019-11-20 18:40:58] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10371 
+[2019-11-20 18:40:58] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:40:58] [INFO   ] testuser-10863: Client ending handshake with testuser-10371 
+[2019-11-20 18:40:58] [INFO   ] testuser-10863: New peer 'testuser-10371' has been confirmed 
+[2019-11-20 18:40:58] [INFO   ] testuser-10863: Server beginning handshake with testuser-10235 
+[2019-11-20 18:40:59] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10235 
+[2019-11-20 18:40:59] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10235 
+[2019-11-20 18:40:59] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:40:59] [INFO   ] testuser-10863: Server beginning handshake with testuser-10235 
+[2019-11-20 18:40:59] [INFO   ] testuser-10863: Client ending handshake with testuser-10235 
+[2019-11-20 18:40:59] [INFO   ] testuser-10863: New peer 'testuser-10235' has been confirmed 
+[2019-11-20 18:40:59] [INFO   ] testuser-10863: Server ending handshake with testuser-10235 
+[2019-11-20 18:40:59] [INFO   ] testuser-10863: Server beginning handshake with testuser-10553 
+[2019-11-20 18:40:59] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10553 
+[2019-11-20 18:40:59] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10553 
+[2019-11-20 18:40:59] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:00] [INFO   ] testuser-10863: Server ending handshake with testuser-10553 
+[2019-11-20 18:41:00] [INFO   ] testuser-10863: New peer 'testuser-10553' has been confirmed 
+[2019-11-20 18:41:00] [INFO   ] testuser-10863: Client ending handshake with testuser-10553 
+[2019-11-20 18:41:00] [INFO   ] testuser-10863: Server beginning handshake with testuser-10553 
+[2019-11-20 18:41:00] [INFO   ] testuser-10863: Server ending handshake with testuser-10553 
+[2019-11-20 18:41:01] [INFO   ] testuser-10863: Server beginning handshake with testuser-10816 
+[2019-11-20 18:41:01] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10816 
+[2019-11-20 18:41:01] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10816 
+[2019-11-20 18:41:01] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:01] [INFO   ] testuser-10863: Server beginning handshake with testuser-10816 
+[2019-11-20 18:41:01] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10816 
+[2019-11-20 18:41:01] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10816 
+[2019-11-20 18:41:01] [INFO   ] testuser-10863: Server ending handshake with testuser-10816 
+[2019-11-20 18:41:01] [INFO   ] testuser-10863: New peer 'testuser-10816' has been confirmed 
+[2019-11-20 18:41:01] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:01] [INFO   ] testuser-10863: Client ending handshake with testuser-10816 
+[2019-11-20 18:41:01] [INFO   ] testuser-10863: Client ending handshake with testuser-10816 
+[2019-11-20 18:41:01] [INFO   ] testuser-10863: Server ending handshake with testuser-10816 
+[2019-11-20 18:41:02] [INFO   ] testuser-10863: Server beginning handshake with testuser-10217 
+[2019-11-20 18:41:02] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10217 
+[2019-11-20 18:41:02] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10217 
+[2019-11-20 18:41:02] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:02] [INFO   ] testuser-10863: Server beginning handshake with testuser-10217 
+[2019-11-20 18:41:02] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10217 
+[2019-11-20 18:41:02] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10217 
+[2019-11-20 18:41:02] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:02] [INFO   ] testuser-10863: Server beginning handshake with testuser-10217 
+[2019-11-20 18:41:02] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10217 
+[2019-11-20 18:41:02] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10217 
+[2019-11-20 18:41:02] [INFO   ] testuser-10863: Server ending handshake with testuser-10217 
+[2019-11-20 18:41:02] [INFO   ] testuser-10863: New peer 'testuser-10217' has been confirmed 
+[2019-11-20 18:41:02] [INFO   ] testuser-10863: Client ending handshake with testuser-10217 
+[2019-11-20 18:41:02] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:02] [INFO   ] testuser-10863: Client ending handshake with testuser-10217 
+[2019-11-20 18:41:02] [INFO   ] testuser-10863: Server ending handshake with testuser-10217 
+[2019-11-20 18:41:02] [INFO   ] testuser-10863: Client ending handshake with testuser-10217 
+[2019-11-20 18:41:03] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10734 
+[2019-11-20 18:41:03] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10734 
+[2019-11-20 18:41:03] [INFO   ] testuser-10863: Server beginning handshake with testuser-10734 
+[2019-11-20 18:41:03] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:03] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10734 
+[2019-11-20 18:41:03] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10734 
+[2019-11-20 18:41:03] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10734 
+[2019-11-20 18:41:03] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10734 
+[2019-11-20 18:41:03] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10734 
+[2019-11-20 18:41:03] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10734 
+[2019-11-20 18:41:03] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:03] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:03] [INFO   ] testuser-10863: Server beginning handshake with testuser-10734 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10734 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10734 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Server beginning handshake with testuser-10734 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Server beginning handshake with testuser-10734 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Client ending handshake with testuser-10734 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: New peer 'testuser-10734' has been confirmed 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Server ending handshake with testuser-10734 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Client ending handshake with testuser-10734 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Server ending handshake with testuser-10734 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Client ending handshake with testuser-10734 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Server beginning handshake with testuser-10734 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Server beginning handshake with testuser-10734 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Server ending handshake with testuser-10734 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Server ending handshake with testuser-10734 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Server ending handshake with testuser-10734 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Client ending handshake with testuser-10734 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Client ending handshake with testuser-10734 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10765 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10765 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Server beginning handshake with testuser-10765 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10765 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10765 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10765 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10765 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10765 
+[2019-11-20 18:41:04] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10765 
+[2019-11-20 18:41:05] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10765 
+[2019-11-20 18:41:05] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10765 
+[2019-11-20 18:41:05] [INFO   ] testuser-10863: Server ending handshake with testuser-10765 
+[2019-11-20 18:41:05] [INFO   ] testuser-10863: New peer 'testuser-10765' has been confirmed 
+[2019-11-20 18:41:05] [INFO   ] testuser-10863: Client ending handshake with testuser-10765 
+[2019-11-20 18:41:05] [INFO   ] testuser-10863: Server beginning handshake with testuser-10765 
+[2019-11-20 18:41:05] [INFO   ] testuser-10863: Server ending handshake with testuser-10765 
+[2019-11-20 18:41:05] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:05] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:05] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:05] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:05] [INFO   ] testuser-10863: Server beginning handshake with testuser-10765 
+[2019-11-20 18:41:05] [INFO   ] testuser-10863: Client ending handshake with testuser-10765 
+[2019-11-20 18:41:05] [INFO   ] testuser-10863: Client ending handshake with testuser-10765 
+[2019-11-20 18:41:05] [INFO   ] testuser-10863: Server ending handshake with testuser-10765 
+[2019-11-20 18:41:05] [INFO   ] testuser-10863: Server beginning handshake with testuser-10765 
+[2019-11-20 18:41:05] [INFO   ] testuser-10863: Server ending handshake with testuser-10765 
+[2019-11-20 18:41:05] [INFO   ] testuser-10863: Client ending handshake with testuser-10765 
+[2019-11-20 18:41:06] [INFO   ] testuser-10863: Client ending handshake with testuser-10765 
+[2019-11-20 18:41:06] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10129 
+[2019-11-20 18:41:06] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10129 
+[2019-11-20 18:41:06] [INFO   ] testuser-10863: Server beginning handshake with testuser-10129 
+[2019-11-20 18:41:06] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:06] [INFO   ] testuser-10863: Server ending handshake with testuser-10129 
+[2019-11-20 18:41:06] [INFO   ] testuser-10863: New peer 'testuser-10129' has been confirmed 
+[2019-11-20 18:41:06] [INFO   ] testuser-10863: Server beginning handshake with testuser-10129 
+[2019-11-20 18:41:06] [INFO   ] testuser-10863: Client ending handshake with testuser-10129 
+[2019-11-20 18:41:06] [INFO   ] testuser-10863: Server ending handshake with testuser-10129 
+[2019-11-20 18:41:08] [INFO   ] testuser-10863: Server beginning handshake with testuser-10328 
+[2019-11-20 18:41:08] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10328 
+[2019-11-20 18:41:08] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10328 
+[2019-11-20 18:41:08] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:08] [INFO   ] testuser-10863: Server ending handshake with testuser-10328 
+[2019-11-20 18:41:08] [INFO   ] testuser-10863: New peer 'testuser-10328' has been confirmed 
+[2019-11-20 18:41:08] [INFO   ] testuser-10863: Server beginning handshake with testuser-10328 
+[2019-11-20 18:41:08] [INFO   ] testuser-10863: Client ending handshake with testuser-10328 
+[2019-11-20 18:41:08] [INFO   ] testuser-10863: Server ending handshake with testuser-10328 
+[2019-11-20 18:41:10] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10528 
+[2019-11-20 18:41:10] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10528 
+[2019-11-20 18:41:10] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:10] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10528 
+[2019-11-20 18:41:10] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10528 
+[2019-11-20 18:41:10] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10528 
+[2019-11-20 18:41:10] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10528 
+[2019-11-20 18:41:10] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:10] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:10] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10528 
+[2019-11-20 18:41:10] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10528 
+[2019-11-20 18:41:11] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10528 
+[2019-11-20 18:41:11] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10528 
+[2019-11-20 18:41:11] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:11] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:11] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10528 
+[2019-11-20 18:41:11] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10528 
+[2019-11-20 18:41:11] [INFO   ] testuser-10863: Attempting to connect to IP: localhost, port: 10528 
+[2019-11-20 18:41:11] [INFO   ] testuser-10863: Connected to IP: localhost, port: 10528 
+[2019-11-20 18:41:11] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:11] [INFO   ] testuser-10863: Client starting handshake 
+[2019-11-20 18:41:11] [INFO   ] testuser-10863: Server beginning handshake with testuser-10528 
+[2019-11-20 18:41:11] [INFO   ] testuser-10863: Client ending handshake with testuser-10528 
+[2019-11-20 18:41:11] [INFO   ] testuser-10863: New peer 'testuser-10528' has been confirmed 
+[2019-11-20 18:41:12] [INFO   ] testuser-10863: Client ending handshake with testuser-10528 
+[2019-11-20 18:41:12] [INFO   ] testuser-10863: Server beginning handshake with testuser-10528 
+[2019-11-20 18:41:12] [INFO   ] testuser-10863: Server beginning handshake with testuser-10528 
+[2019-11-20 18:41:12] [INFO   ] testuser-10863: Server ending handshake with testuser-10528 
+[2019-11-20 18:41:12] [INFO   ] testuser-10863: Server ending handshake with testuser-10528 
+[2019-11-20 18:41:12] [INFO   ] testuser-10863: Server ending handshake with testuser-10528 
+[2019-11-20 18:41:12] [INFO   ] testuser-10863: Client ending handshake with testuser-10528 
+[2019-11-20 18:41:12] [INFO   ] testuser-10863: Client ending handshake with testuser-10528 
+[2019-11-20 18:41:12] [INFO   ] testuser-10863: Client ending handshake with testuser-10528 
+[2019-11-20 18:41:12] [INFO   ] testuser-10863: Client ending handshake with testuser-10528 
+[2019-11-20 18:41:12] [INFO   ] testuser-10863: Client ending handshake with testuser-10528 
+[2019-11-20 18:41:12] [INFO   ] testuser-10863: Server beginning handshake with testuser-10528 
+[2019-11-20 18:41:12] [INFO   ] testuser-10863: Server ending handshake with testuser-10528 
+[2019-11-20 18:41:12] [INFO   ] testuser-10863: Server beginning handshake with testuser-10528 
+[2019-11-20 18:41:12] [INFO   ] testuser-10863: Server beginning handshake with testuser-10528 
+[2019-11-20 18:41:12] [INFO   ] testuser-10863: Server ending handshake with testuser-10528 
+[2019-11-20 18:41:13] [INFO   ] testuser-10863: Server beginning handshake with testuser-10528 
+[2019-11-20 18:41:13] [INFO   ] testuser-10863: Server ending handshake with testuser-10528 
+[2019-11-20 18:41:13] [INFO   ] testuser-10863: Server ending handshake with testuser-10528 
+[2019-11-20 18:41:13] [INFO   ] testuser-10863: Server beginning handshake with testuser-10528 
+[2019-11-20 18:41:13] [INFO   ] testuser-10863: Server ending handshake with testuser-10528 
+[2019-11-20 18:41:17] [INFO   ] testuser-10863: Receiving sync info dir 
+[2019-11-20 18:41:17] [INFO   ] testuser-10863: Banned user and syncing info dir 
+[2019-11-20 18:41:17] [INFO   ] testuser-10863: Receiving sync info dir 
+[2019-11-20 18:41:17] [INFO   ] testuser-10863: Receiving sync info dir 
+[2019-11-20 18:41:17] [INFO   ] testuser-10863: Receiving sync info dir 
+[2019-11-20 18:41:17] [INFO   ] testuser-10863: Receiving sync info dir 
+[2019-11-20 18:41:17] [INFO   ] testuser-10863: Receiving sync info dir 
+[2019-11-20 18:41:17] [INFO   ] testuser-10863: Receiving sync info dir 
+[2019-11-20 18:41:17] [INFO   ] testuser-10863: Receiving sync info dir 
+[2019-11-20 18:41:17] [INFO   ] testuser-10863: Receiving sync info dir 

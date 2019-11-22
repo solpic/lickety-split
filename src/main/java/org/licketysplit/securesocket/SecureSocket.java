@@ -93,10 +93,12 @@ public class SecureSocket {
         this.serverInfo = serverInfo;
     }
 
+    boolean shouldClose = false;
     public void close() throws Exception{
         in.close();
         out.close();
         socket.close();
+        shouldClose = true;
     }
     public static interface NewConnectionCallback {
         void onConnect(SecureSocket sock) throws Exception;
@@ -183,6 +185,21 @@ public class SecureSocket {
     public static Object defaultHandlersLock = new Object();
 
     final int headersSize = 4*4;
+
+    Integer socketErrorCount = 0;
+    protected void socketError(){
+        synchronized (socketErrorCount) {
+            socketErrorCount++;
+            if(socketErrorCount>4) {
+                try {
+                    close();
+                }
+                catch(Exception e) {
+                    env.getLogger().log(Level.SEVERE, "Couldn't close socket");
+                }
+            }
+        }
+    }
     class SocketReader implements Runnable {
 
         ConcurrentLinkedQueue<Message> oldMessages;
@@ -263,11 +280,12 @@ public class SecureSocket {
                     messageHandler.handle(new ReceivedMessage(msg, SecureSocket.this, responseId, env));
 //                    log.log(Level.OFF, "Done calling response handler");
                 } catch (Exception e) {
-                    log.log(Level.SEVERE,"Error in reader thread");
-                    try {
-                        throw new MessagingError("Error for " + env.getUserInfo().getUsername());
-                    }catch(Exception e2) {}
-                    e.printStackTrace();
+                    socketError();
+                    if(shouldClose) return;
+                    else {
+                        log.log(Level.SEVERE, "Error in reader thread");
+                        e.printStackTrace();
+                    }
                 }
             }
         }
@@ -326,8 +344,12 @@ public class SecureSocket {
                         activateEncryption();
                     }
                 } catch (Exception e) {
-                    log.log(Level.SEVERE, "Exception during socket writer");
-                    e.printStackTrace();
+                    socketError();
+                    if(shouldClose) return;
+                    else {
+                        log.log(Level.SEVERE, "Exception during socket writer");
+                        e.printStackTrace();
+                    }
                 }
             }
         }

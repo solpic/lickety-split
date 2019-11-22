@@ -9,6 +9,7 @@ import org.licketysplit.securesocket.peers.*;
 import java.io.File;
 import java.security.KeyPair;
 import java.util.*;
+import java.util.logging.Level;
 
 import org.junit.jupiter.api.Test;
 import org.licketysplit.testing.TestNetworkManager;
@@ -58,20 +59,24 @@ public class PeerInfoTest {
 
 
     @ParameterizedTest
-    @ValueSource(ints = {5})
+    @ValueSource(ints = {10})
     public void newConnectionsWork(int numPeers) throws Exception {
         TestNetworkManager mgr = new TestNetworkManager();
         mgr.clearLogs();
         Environment rootEnv = mgr.getRootEnv();
         Object lock = new Object();
-        long extendTime = 2000;
+        long extendTime = 4000;
         WaitUntil rootWaitUntil = new WaitUntil();
+
+        List<String> users = new ArrayList<>();
         class ServerThread extends Thread {
             Environment env;
             public void run() {
                 try {
                     env = mgr.addPeer(false);
-
+                    synchronized (users) {
+                        users.add(env.getUserInfo().getUsername());
+                    }
                     env.getDebug().setTrigger("handshaking",
                             (Object ...args)-> {
                                 rootWaitUntil.extend(extendTime);
@@ -86,8 +91,8 @@ public class PeerInfoTest {
                 }
             }
 
-            public void checkPeerList() {
-                assertEquals(numPeers, env.getPm().getPeers().size(),
+            public void checkPeerList(int n) {
+                assertEquals(n, env.getPm().getPeers().size(),
                         String.format("For user: %s, expected: %d, got: %d",
                                 env.getUserInfo().getUsername(), numPeers, env.getPm().getPeers().size()));
             }
@@ -98,6 +103,7 @@ public class PeerInfoTest {
                     rootWaitUntil.extend(extendTime);
                 });
         rootEnv.getPm().start();
+        users.add(rootEnv.getUserInfo().getUsername());
 
 
         List<ServerThread> peers = new ArrayList<>();
@@ -105,13 +111,27 @@ public class PeerInfoTest {
             ServerThread serverThread = new ServerThread();
             serverThread.start();
             peers.add(serverThread);
+            Thread.sleep(1000);
         }
         rootWaitUntil.waitUntil(extendTime);
         assertEquals(numPeers, rootEnv.getPm().getPeers().size(),
                 String.format("For user: %s, expected: %d, got: %d",
                         rootEnv.getUserInfo().getUsername(), numPeers, rootEnv.getPm().getPeers().size()));
         for (ServerThread peer : peers) {
-            peer.checkPeerList();
+            peer.checkPeerList(numPeers);
+        }
+
+        String toBeBanned = users.get(users.size()-1);
+        rootEnv.getLogger().log(Level.INFO, "BANNING "+toBeBanned);
+        rootEnv.getInfo().banUser(toBeBanned, rootEnv.getRootKey().getKey());
+
+        Thread.sleep(10000);
+        assertEquals(numPeers-1, rootEnv.getPm().getPeers().size(),
+                String.format("For user: %s, expected: %d, got: %d",
+                        rootEnv.getUserInfo().getUsername(), numPeers, rootEnv.getPm().getPeers().size()));
+        for (ServerThread peer : peers) {
+            if(!peer.env.getUserInfo().getUsername().equals(toBeBanned))
+            peer.checkPeerList(numPeers-1);
         }
         synchronized (lock) {
             lock.notifyAll();

@@ -3,13 +3,10 @@ package org.licketysplit.securesocket.onconnect;
 import org.licketysplit.env.EnvLogger;
 import org.licketysplit.env.Environment;
 import org.licketysplit.securesocket.SecureSocket;
-import org.licketysplit.securesocket.peers.UserInfo;
+import org.licketysplit.securesocket.peers.*;
 import org.licketysplit.securesocket.messages.DefaultHandler;
 import org.licketysplit.securesocket.messages.MessageHandler;
 import org.licketysplit.securesocket.messages.ReceivedMessage;
-import org.licketysplit.securesocket.peers.GetPeerListRequest;
-import org.licketysplit.securesocket.peers.GetPeerListResponse;
-import org.licketysplit.securesocket.peers.PeerManager;
 
 import java.util.logging.Level;
 
@@ -21,6 +18,8 @@ public class SyncPeerListOnConnect implements NewConnectionHandler {
 
         sock.sendFirstMessage(new GetPeerListRequest(), (ReceivedMessage m) -> {
             GetPeerListResponse lst = m.getMessage();
+            PeerInfoDirectory info = lst.getInfo();
+            env.getInfo().syncInfo(info);
             for (PeerManager.PeerAddress peer : lst.getPeerList()) {
                 m.getEnv().getPm().addPeer(peer);
             }

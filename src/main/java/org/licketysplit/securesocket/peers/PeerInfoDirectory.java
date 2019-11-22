@@ -49,6 +49,27 @@ public class PeerInfoDirectory {
         return changed;
     }
 
+    public void banUser(String username, byte[] rootKey) throws Exception {
+        PeerInfo nPeerInfo = null;
+        synchronized (peers) {
+            if(peers.containsKey(username)) {
+                PeerInfo peerInfo = peers.get(username);
+                if(peerInfo.getBan()==null) {
+                    PeerInfo.BanInfo ban = new PeerInfo.BanInfo();
+                    ban.setBanConfirmation(generateBan(username, rootKey));
+                    nPeerInfo = peerInfo.copy();
+                    nPeerInfo.setBan(ban);
+                    nPeerInfo.setTimestamp(new Date());
+                }else{
+                    throw new Exception("Peer '"+username+"' already banned");
+                }
+            }else{
+                throw new Exception("Peer '"+username+"' doesn't exist");
+            }
+        }
+        updatePeer(nPeerInfo, true);
+    }
+
     public static SignedPayload generateNewUserConfirm(String username, byte[] identityKey, byte[] rootKey) throws Exception{
         SignedPayload.Signer signer = new SignedPayload.Signer(rootKey);
         byte[] payload = newUserConfirmPayload(username, identityKey);
@@ -104,6 +125,19 @@ public class PeerInfoDirectory {
 
 
         public PeerInfo() {
+        }
+
+        public PeerInfo copy() {
+            PeerInfo cpy = new PeerInfo();
+            cpy.setIdentityKey(identityKey);
+            cpy.setNewUserConfirmation(newUserConfirmation);
+            cpy.setServerIp(serverIp);
+            cpy.setServerPort(serverPort);
+            cpy.setTimestamp(timestamp);
+            cpy.setUsername(username);
+            cpy.setBan(ban);
+
+            return cpy;
         }
 
         public SignedPayload getNewUserConfirmation() {
@@ -248,12 +282,22 @@ public class PeerInfoDirectory {
 
     }
 
-    public void banPeerCallback(PeerInfo peer) throws Exception {
+    Environment e;
 
+    public void env(Environment e) {
+        this.e = e;
+    }
+
+    public Environment env() {
+        return e;
+    }
+
+    public void banPeerCallback(PeerInfo peer) throws Exception {
+        env().getPm().userBanned(peer.getUsername());
     }
 
     public void newPeerAndBanCallback(PeerInfo peer) throws Exception {
-
+        env().getPm().userBanned(peer.getUsername());
     }
 
     public void updatePeer(PeerInfo peer, boolean shouldReplace) throws Exception {
@@ -316,7 +360,9 @@ public class PeerInfoDirectory {
 
     public String toJSONString() throws Exception {
         ObjectMapper mapper = new ObjectMapper();
-        return mapper.writeValueAsString(this);
+        synchronized(peers) {
+            return mapper.writeValueAsString(this);
+        }
     }
 
     public void fromJSONString(String data) throws Exception {

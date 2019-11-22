@@ -7,6 +7,7 @@ import java.util.List;
 
 public class GetPeerListResponse extends JSONMessage {
     List<PeerManager.PeerAddress> peerList;
+    PeerInfoDirectory info;
 
     public List<PeerManager.PeerAddress> getPeerList() {
         return peerList;
@@ -16,8 +17,17 @@ public class GetPeerListResponse extends JSONMessage {
         this.peerList = peerList;
     }
 
-    public GetPeerListResponse(List<PeerManager.PeerAddress> peers) {
+    public PeerInfoDirectory getInfo() {
+        return info;
+    }
+
+    public void setInfo(PeerInfoDirectory info) {
+        this.info = info;
+    }
+
+    public GetPeerListResponse(List<PeerManager.PeerAddress> peers, PeerInfoDirectory info) {
         peerList = peers;
+        this.info = info;
     }
 
     public GetPeerListResponse() {}
