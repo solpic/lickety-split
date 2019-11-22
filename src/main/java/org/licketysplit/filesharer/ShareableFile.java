@@ -1,10 +1,5 @@
 package org.licketysplit.filesharer;
-
-import org.licketysplit.securesocket.*;
-
 import java.io.*;
-import java.nio.ByteBuffer;
-import java.util.Random;
 
 public class ShareableFile extends File{
     private int chunkSize;

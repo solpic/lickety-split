@@ -13,38 +13,61 @@ import org.licketysplit.syncmanager.FileInfo;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
+public class DownloadManager implements Runnable {
 
-public class DownloadManager {
-
-    private AssemblingFile assemblingFile;
+    private FileAssembler fileAssembler;
     private HashMap<UserInfo, PeerDownloadInfo> peers;
     private ArrayList<Integer> necessaryAndAvailableChunks;
-    private ArrayList<Integer> completedChunks;
     private Environment env;
-    private ReentrantLock lock;
-    private Random r;
     private Thread assemblingThread;
     private int updateAfterTwenty;
     private boolean isCanceled;
+    private boolean isFinished;
 
     public DownloadManager(FileInfo fileInfo, Environment env) throws IOException {
-        this.assemblingFile = new AssemblingFile(fileInfo, env, this.getLengthInChunks(fileInfo));
-        this.assemblingThread = new Thread(assemblingFile);
+        this.fileAssembler = new FileAssembler(fileInfo, env, this.getLengthInChunks(fileInfo));
+        this.assemblingThread = new Thread(fileAssembler);
         this.assemblingThread.start();
         this.necessaryAndAvailableChunks = new ArrayList<Integer>();
         this.peers = new HashMap<UserInfo, PeerDownloadInfo>();
-        this.completedChunks = new ArrayList<Integer>();
         this.env = env;
-        this.lock = new ReentrantLock();
-        this.r = new Random();
-        this.r.setSeed(System.currentTimeMillis());
         this.updateAfterTwenty = 0;
         this.isCanceled = false;
     }
 
-    public AssemblingFile getAssemblingFile() {
-        return assemblingFile;
+    @Override
+    public void run() {
+        try {
+            PeerDownloadInfo peer;
+            UserInfo user;
+            int chunk;
+            while(!isFinished || !isCanceled){
+                if((user = this.getFreeUser()) != null){
+                    peer = this.getPeers().get(user);
+                    chunk = peer.getRandomDesirableChunk(this.getNecessaryAndAvailableChunks());
+                    if(chunk == -1) continue;
+                    this.remove(chunk);
+                    this.sendDownloadRequest(chunk, user, peer);
+                }
+            }
+        } catch(Exception e){
+            e.printStackTrace();
+        }
+    }
+
+    public FileAssembler getFileAssembler() {
+        return fileAssembler;
+    }
+
+    private UserInfo getFreeUser(){
+        List<UserInfo> shuffledList = new ArrayList<UserInfo>( this.getPeers().keySet() );
+        Collections.shuffle( shuffledList );
+        for (UserInfo user: shuffledList) {
+           if(!this.getPeers().get(user).getInUse()){
+               return user;
+           }
+        }
+        return null;
     }
 
     private int getLengthInChunks(FileInfo fileInfo){
@@ -53,34 +76,32 @@ public class DownloadManager {
         return (int) Math.ceil(preciseChunks);
     }
 
+    public ArrayList<Integer> getNecessaryAndAvailableChunks(){
+        return this.necessaryAndAvailableChunks;
+    }
+
     public void addPeerAndRequestChunkIfPossible(PeerChunkInfo peerInfo, SecureSocket socket, UserInfo userInfo) throws Exception {
-        this.peers.put(userInfo, new PeerDownloadInfo(peerInfo, socket));
+        this.peers.put(userInfo, new PeerDownloadInfo(peerInfo, socket)); //TODO(will) check if possible
         this.updateAvailableChunks(peerInfo);
-        this.requestRandomChunk(userInfo);
+        this.makeUserAvailable(userInfo);
     }
 
     public HashMap<UserInfo, PeerDownloadInfo> getPeers(){
         return this.peers;
     }
 
-    public void requestRandomChunk(UserInfo userInfo) throws Exception {
+    public void remove(int chunk){
+        this.necessaryAndAvailableChunks.remove(Integer.valueOf(chunk));
+    }
+
+    public void setUserToAvailable(UserInfo user){
+        this.getPeers().get(user).setInUse(false);
+    }
+
+    public void makeUserAvailable(UserInfo userInfo) throws Exception {
         if(isCanceled) return;
 
-        int chunk = -1;
-        PeerDownloadInfo peer = this.getPeers().get(userInfo);
-
-        if(peer == null) return;
-
-        this.lock.lock(); // Lock so no concurrency issues
-        try {
-            chunk = peer.getRandomDesirableChunk(this.necessaryAndAvailableChunks);
-            if(chunk < 0) return; // TODO(will) Maybe update available chunks at this point
-            this.necessaryAndAvailableChunks.remove(Integer.valueOf(chunk));
-        } finally {
-            this.lock.unlock();
-        }
-
-        this.sendDownloadRequest(chunk, userInfo, peer);
+        this.setUserToAvailable(userInfo);
         if(this.updateAfterTwenty == 20) {
             this.updateAfterTwenty = 0;
             this.updatePeerList();
@@ -96,20 +117,21 @@ public class DownloadManager {
         newPeers.removeAll(currPeers);
         ArrayList<UserInfo> newPeersLs = new ArrayList<UserInfo>(newPeers);
         for (UserInfo peer: newPeersLs) {
-            peers.get(peer).sendFirstMessage(new ChunkAvailabilityRequest(this.assemblingFile.getFileInfo()), new FileSharer.ChunkAvailabilityRequestHandler(this, peer));
+            peers.get(peer).sendFirstMessage(new ChunkAvailabilityRequest(this.fileAssembler.getFileInfo()), new FileSharer.ChunkAvailabilityRequestHandler(this, peer));
         }
     }
 
     public void sendDownloadRequest(int chunk, UserInfo userInfo, PeerDownloadInfo peer) throws Exception {
-        peer.getSocket().sendFirstMessage(new ChunkDownloadRequest(this.assemblingFile.getFileInfo(), chunk), new ChunkDownloadRequestHandler(chunk,  this, userInfo)); //need to close request and remove chunk
+        peer.getSocket().sendFirstMessage(new ChunkDownloadRequest(this.fileAssembler.getFileInfo(), chunk), new ChunkDownloadRequestHandler(chunk,  this, userInfo)); //need to close request and remove chunk
     }
 
     public void onChunkCompleted(int chunk, UserInfo userInfo, boolean isFinished) throws Exception {
         if(isFinished){
+            this.isFinished = true;
             return;
         }
-        this.completedChunks.add(chunk);
-        this.requestRandomChunk(userInfo);
+        this.peers.get(userInfo).setInUse(false);
+        this.makeUserAvailable(userInfo);
     }
 
     public void updateAvailableChunks(PeerChunkInfo peerChunkInfo){
@@ -122,12 +144,15 @@ public class DownloadManager {
     }
 
     public void cancelDownload(){
-        this.assemblingFile.cancel();
+        this.fileAssembler.cancel();
         this.isCanceled = true;
     }
 
+    private boolean isFinished() {
+        return this.isFinished;
+    }
+
     public static class ChunkDownloadRequestHandler implements MessageHandler {
-        public PeerDownloadInfo peer;
         public int chunk;
         public DownloadManager dManager;
         public UserInfo userInfo;
@@ -142,9 +167,11 @@ public class DownloadManager {
         public void handle(ReceivedMessage m) throws Exception {
             //If error add chunk back to availableChunks.
             ChunkDownloadResponse decodedMessage = m.getMessage();
-            boolean isFinished = this.dManager.getAssemblingFile().saveChunk(decodedMessage.data, this.chunk);
+            if(this.dManager.isFinished()) return;
+            boolean isFinished = this.dManager.getFileAssembler().saveChunk(decodedMessage.data, this.chunk);
             this.dManager.onChunkCompleted(this.chunk, this.userInfo, isFinished);
         }
     }
+
 }
 

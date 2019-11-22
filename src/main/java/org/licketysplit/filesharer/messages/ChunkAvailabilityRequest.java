@@ -20,10 +20,14 @@ public class ChunkAvailabilityRequest extends JSONMessage {
     public static class ChunkAvailabilityRequestHandler implements MessageHandler {
         @Override
         public void handle(ReceivedMessage m) {
+            System.out.println("RECEIVED");
             ChunkAvailabilityRequest tstMsg = m.getMessage();
+            System.out.println("1");
             String requestedFileName = tstMsg.fileInfo.getName();
+            System.out.println("2");
             Environment env = m.getEnv();
             FileManager fm = env.getFM();
+            System.out.println("3");
             if( fm.hasFile(requestedFileName)) {
                 try {
                     m.respond(new ChunkAvailabilityResponse(fm.getFile(requestedFileName), tstMsg.fileInfo), null);

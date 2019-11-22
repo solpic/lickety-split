@@ -41,6 +41,8 @@ public class FileSharer {
 
     public DownloadManager download(FileInfo fileInfo) throws Exception {
         DownloadManager dManager = new DownloadManager(fileInfo, this.env);
+        Thread dThread = new Thread(dManager);
+        dThread.start();
         ConcurrentHashMap<UserInfo, SecureSocket> peers = this.env.getPm().getPeers();
         for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
             //log the chunks they have and send download request if applicable

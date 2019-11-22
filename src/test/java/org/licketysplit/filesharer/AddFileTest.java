@@ -32,17 +32,17 @@ public class AddFileTest{
             }
 
             public void run() {
-                if(this.currFolder == 0){
-                    try {
-                        System.out.println("Sleeping 3");
-                        Thread.sleep(5000);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
+//                if(this.currFolder == 0){
+//                    try {
+//                        System.out.println("Sleeping 3");
+//                        Thread.sleep(4000);
+//                    } catch (InterruptedException e) {
+//                        e.printStackTrace();
+//                    }
+//                }
                 Random rand = new Random();
                 String username = "merrill-";
-                username += Integer.toString(rand.nextInt(5000));
+                username += currFolder;
                 PeerManager pm = new PeerManager();
                 FileManager fm = new FileManager();
                 SyncManager sm = new SyncManager();
@@ -75,7 +75,7 @@ public class AddFileTest{
             }
         }
 
-        for(int i = 0; i<5; i++) {
+        for(int i = 0; i<6; i++) {
             ServerThread serverThread = new ServerThread(i);
             serverThread.start();
         }

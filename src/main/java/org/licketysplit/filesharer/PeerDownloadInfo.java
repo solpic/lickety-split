@@ -9,21 +9,25 @@ import java.util.Random;
 import java.util.Set;
 
 public class PeerDownloadInfo {
-    private int openRequests;
     private PeerChunkInfo peerChunkInfo;
     private SecureSocket socket;
     private Random r;
+    private boolean inUse;
 
     public PeerDownloadInfo(PeerChunkInfo peerChunkInfo, SecureSocket socket) {
-        this.openRequests = 0;
         this.peerChunkInfo = peerChunkInfo;
         this.socket = socket;
+        this.inUse = false;
         this.r = new Random();
         this.r.setSeed(System.currentTimeMillis());
     }
 
-    public boolean hasChunk(int chunk) {
-        return this.peerChunkInfo.hasChunk(chunk);
+    public void setInUse(boolean inUse){
+        this.inUse = inUse;
+    }
+
+    public boolean getInUse(){
+        return this.inUse;
     }
 
     public int getRandomDesirableChunk(ArrayList<Integer> availableChunks){
@@ -36,26 +40,6 @@ public class PeerDownloadInfo {
         }
 
         return -1;
-    }
-
-    public int getChunksLength(){
-        return this.peerChunkInfo.chunksLength();
-    }
-
-    public void addOpenRequest(){
-        this.openRequests++;
-    }
-
-    public void removeOpenRequest(){
-        this.openRequests--;
-    }
-
-    public int getOpenRequests(){
-        return this.openRequests;
-    }
-
-    public PeerChunkInfo getPeerChunkInfo() {
-        return peerChunkInfo;
     }
 
     public SecureSocket getSocket() {
