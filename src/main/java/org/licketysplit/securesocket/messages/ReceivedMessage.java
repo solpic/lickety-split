@@ -13,6 +13,10 @@ public class ReceivedMessage {
         conn.sendMessage(m, handler, respondId);
     }
 
+    public ReceivedMessage respondAndWait(Message m) throws Exception {
+        return conn.sendMessageAndWait(m, respondId);
+    }
+
     public Environment getEnv() {
         return env;
     }

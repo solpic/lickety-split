@@ -1,0 +1,20 @@
+- Finish ID verification
+    - Banning
+    - New users
+    - Sync info dir
+        - Syncs on change to all peers
+            - New users and bans must be verified from root
+            - Username and ID key won't change
+        - If ban, disconnect socket
+        - If new user, attempt connection?
+- Helper functions to set up networks, generate files, load env
+    - Files are
+        - Info dir
+        - Root key (if root)
+        - ID private key
+
+- Finish ID stuff
+- Fix download bug
+- Merge changes
+- EC2 peers
+- Hook up GUI/make GUI changes
