@@ -48,29 +48,6 @@ public class SecureSocket {
     public void setCipher(SymmetricCipher cipher) {
         this.cipher = cipher;
     }
-    /*
-    private AsymmetricCipher initialEncryptor;
-    private AsymmetricCipher initialDecryptor;
-
-    public AsymmetricCipher getInitialEncryptor() {
-        return initialEncryptor;
-    }
-
-    public void setInitialEncryptor(AsymmetricCipher initialEncryptor) {
-        synchronized (this.initialEncryptor) {
-            this.initialEncryptor = initialEncryptor;
-        }
-    }
-
-    public AsymmetricCipher getInitialDecryptor() {
-        return initialDecryptor;
-    }
-
-    public void setInitialDecryptor(AsymmetricCipher initialDecryptor) {
-        synchronized (this.initialDecryptor) {
-            this.initialDecryptor = initialDecryptor;
-        }
-    }*/
 
     //<editor-fold desc="Constructor/deconstructor">
     public SecureSocket(Socket socket, DataOutputStream out, DataInputStream in, Environment env, UserInfo userInfo, PeerManager.ServerInfo server) throws Exception {
@@ -112,8 +89,6 @@ public class SecureSocket {
         this.userInfo = userInfo;
     }
 
-    //</editor-fold>
-    //<editor-fold desc="Factories">
     public static void listen(int port, NewConnectionCallback fnc, Environment env) throws Exception {
         if(port<=0) {
             throw new Exception("Can't listen on negative port");
@@ -157,14 +132,6 @@ public class SecureSocket {
                     env.getUserInfo().getUsername(), peer.getServerInfo().getIp(), peer.getServerInfo().getPort()));
         }
     }
-    //</editor-fold>
-
-    /*
-    Messaging Interface:
-
-    Header:
-    4 byte id (int), 8 byte size (long)
-     */
     class MessagePair {
         Message msg;
         MessageHandler handler;
@@ -312,7 +279,6 @@ public class SecureSocket {
                     Integer id = assignHandler(nextMessage.handler);
                     Integer classCode = getOpCode(nextMessage.msg);
                     byte[] payload = nextMessage.msg.toBytes();
-
 
                     if(id<0||nextMessage.respondingToMessage<-1||classCode<0) {
                         env.getLogger().log(Level.SEVERE, "Negative value");

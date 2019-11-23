@@ -133,10 +133,10 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
 
     public void listenInNewThread() throws Exception {
         new Thread(() -> {
-            try {
+            try{
                 listen();
-            }catch(Exception e) {
-
+            } catch(Exception e){
+                e.printStackTrace();
             }
         }).start();
     }
