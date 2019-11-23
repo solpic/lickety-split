@@ -75,7 +75,7 @@ public class AddFileTest{
             }
         }
 
-        for(int i = 0; i<5; i++) {
+        for(int i = 0; i<2; i++) {
             ServerThread serverThread = new ServerThread(i);
             serverThread.start();
         }
@@ -91,7 +91,10 @@ public class AddFileTest{
         pm.listenInNewThread();
         Thread.sleep(3000);
 //        File file = new File(System.getProperty("user.home") + "/2.png");
-        sm.addFile(System.getProperty("user.home") + "/2.png");
+//        sm.addFile(System.getProperty("user.home") + "/1.txt");
+//        sm.addFile(System.getProperty("user.home") + "/2.txt");
+//        sm.addFile(System.getProperty("user.home") + "/3.txt");
+
         sm.addFile(System.getProperty("user.home") + "/3.png");
 //        sm.addFile(System.getProperty("user.home") + "/4.png");
         // Thread.sleep(10000)

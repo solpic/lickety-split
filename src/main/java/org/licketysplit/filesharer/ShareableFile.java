@@ -10,7 +10,6 @@ public class ShareableFile extends File{
     }
 
     public synchronized byte[] getChunk(int chunk) throws IOException {
-        System.out.println("OPEN");
         int offset = 0;
         if(chunk > 0) offset = this.getOffset(chunk); //RENAME, offset is misnomer
         int spaceNeeded = this.getSpaceNeeded(chunk, offset);
@@ -19,7 +18,6 @@ public class ShareableFile extends File{
         raf.seek(chunk*1024);
         raf.read(bytes);
         raf.close();
-        System.out.println("CLOSING");
         return bytes;
     }
 

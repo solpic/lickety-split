@@ -64,12 +64,12 @@ public class DownloadManager implements Runnable {
                     this.remove(chunk);
                     this.addToCompleted(chunk);
                     this.sendDownloadRequest(chunk, user, peer);
-                    if (this.updateAfterTwenty == 20) {
-                        this.updateAfterTwenty = 0;
-                        this.updatePeerList();
-                    } else {
-                        this.updateAfterTwenty++;
-                    }
+//                    if (this.updateAfterTwenty == 20) {
+//                        this.updateAfterTwenty = 0;
+//                        this.updatePeerList();
+//                    } else {
+//                        this.updateAfterTwenty++;
+//                    }
                 }
             }
             this.finish();
@@ -186,6 +186,7 @@ public class DownloadManager implements Runnable {
         public void handle(ReceivedMessage m) throws Exception {
             //If error add chunk back to availableChunks.
             ChunkDownloadResponse decodedMessage = m.getMessage();
+
             if(this.dManager.isFinished()) return;
             this.dManager.getFileAssembler().saveChunk(decodedMessage.data, this.chunk);
             this.dManager.onChunkCompleted(this.chunk, this.userInfo);
