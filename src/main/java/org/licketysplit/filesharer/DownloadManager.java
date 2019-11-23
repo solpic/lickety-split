@@ -13,6 +13,11 @@ import org.licketysplit.syncmanager.FileInfo;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+
+interface IsFinished {
+    void setFinished(boolean isFinished);
+}
+
 public class DownloadManager implements Runnable {
 
     private FileAssembler fileAssembler;
@@ -25,7 +30,11 @@ public class DownloadManager implements Runnable {
     private boolean isFinished;
 
     public DownloadManager(FileInfo fileInfo, Environment env) throws IOException {
-        this.fileAssembler = new FileAssembler(fileInfo, env, this.getLengthInChunks(fileInfo));
+        IsFinished isFinished = (boolean finish) -> {
+            this.isFinished = finish;
+            System.out.println("SETTING FINISHED");
+        };
+        this.fileAssembler = new FileAssembler(fileInfo, env, this.getLengthInChunks(fileInfo), isFinished);
         this.assemblingThread = new Thread(fileAssembler);
         this.assemblingThread.start();
         this.necessaryAndAvailableChunks = new ArrayList<Integer>();
@@ -125,11 +134,7 @@ public class DownloadManager implements Runnable {
         peer.getSocket().sendFirstMessage(new ChunkDownloadRequest(this.fileAssembler.getFileInfo(), chunk), new ChunkDownloadRequestHandler(chunk,  this, userInfo)); //need to close request and remove chunk
     }
 
-    public void onChunkCompleted(int chunk, UserInfo userInfo, boolean isFinished) throws Exception {
-        if(isFinished){
-            this.isFinished = true;
-            return;
-        }
+    public void onChunkCompleted(int chunk, UserInfo userInfo) throws Exception {
         this.peers.get(userInfo).setInUse(false);
         this.makeUserAvailable(userInfo);
     }
@@ -168,8 +173,8 @@ public class DownloadManager implements Runnable {
             //If error add chunk back to availableChunks.
             ChunkDownloadResponse decodedMessage = m.getMessage();
             if(this.dManager.isFinished()) return;
-            boolean isFinished = this.dManager.getFileAssembler().saveChunk(decodedMessage.data, this.chunk);
-            this.dManager.onChunkCompleted(this.chunk, this.userInfo, isFinished);
+            this.dManager.getFileAssembler().saveChunk(decodedMessage.data, this.chunk);
+            this.dManager.onChunkCompleted(this.chunk, this.userInfo);
         }
     }
 
