@@ -136,7 +136,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
             try{
                 listen();
             } catch(Exception e){
-                e.printStackTrace();
+                env.getLogger().log(Level.INFO, "Exception while listening", e);
             }
         }).start();
     }
@@ -160,7 +160,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
                                 String.format("Couldn't connect to peer %s at ip %s, port %s",
                                         peer.getValue().getUsername(),
                                         peer.getValue().getServerIp(),
-                                        peer.getValue().getServerPort()));
+                                        peer.getValue().getServerPort()), e);
                     }
                 }
             }catch(Exception e) {
@@ -169,7 +169,8 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         }).start();
     }
 
-    public void confirmPeer(UserInfo user, SecureSocket sock) throws Exception {
+    public void confirmPeer(String username, UserInfo user, SecureSocket sock) throws Exception {
+        sock.peerUsername = username;
         synchronized (peers) {
             SecureSocket oldVal = peers.putIfAbsent(user, sock);
             if(oldVal==null) {
@@ -332,14 +333,21 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
 
 
             m.getEnv().getLogger().log(Level.INFO, "Server ending handshake with " + toUser);
-            m.getEnv().getPm().confirmPeer(userId.getUserInfo(), m.getConn());
+            m.getEnv().getPm().confirmPeer(toUser, userId.getUserInfo(), m.getConn());
 
         }catch (Exception e) {
             if(marked) {
                 unlockHandshake(toUser);
             }
-            e.printStackTrace();
-            throw new Exception("Error handshaking with "+toUser);
+
+            env.getLogger().log(
+                    Level.INFO,
+                    String.format("Handshaking error"),
+                    e
+            );
+            return;
+//            e.printStackTrace();
+//            throw new Exception("Error handshaking with "+toUser);
         }
         if(marked) {
             unlockHandshake(toUser);
@@ -434,7 +442,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
             theirIdConfirm.respond(confirmMyId, null);
 
             log.log(Level.INFO, "Client ending handshake with " + username);
-            m.getEnv().getPm().confirmPeer(userInfoMsg.getUserInfo(), userIdResponse.getConn());
+            m.getEnv().getPm().confirmPeer(username, userInfoMsg.getUserInfo(), userIdResponse.getConn());
         } catch(Exception e) {
             if(marked) {
                 unlockHandshake(toUser);
@@ -465,6 +473,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
     }
 
     void newConnectionHandler(SecureSocket sock, boolean isServer) throws Exception{
+        if(sock==null) return;
         if(!isServer) {
             new Thread(() -> {
                 try {

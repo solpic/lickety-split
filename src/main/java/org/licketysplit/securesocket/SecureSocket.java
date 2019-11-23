@@ -48,6 +48,7 @@ public class SecureSocket {
     public void setCipher(SymmetricCipher cipher) {
         this.cipher = cipher;
     }
+    public String peerUsername = "unknown";
 
     //<editor-fold desc="Constructor/deconstructor">
     public SecureSocket(Socket socket, DataOutputStream out, DataInputStream in, Environment env, UserInfo userInfo, PeerManager.ServerInfo server) throws Exception {
@@ -95,13 +96,19 @@ public class SecureSocket {
         }
         ServerSocket serverSocket = new ServerSocket(port);
         while(true) {
-            //env.getLogger().log(Level.INFO,
-            //        "Listening for new connection on port: "+port);
-            Socket clientSocket = serverSocket.accept();
-            DataOutputStream output = new DataOutputStream(clientSocket.getOutputStream());
-            DataInputStream input = new DataInputStream(clientSocket.getInputStream());
-            //env.getLogger().log(Level.INFO,"Accepting new connection");
-            fnc.onConnect(new SecureSocket(clientSocket, output, input, env, null, null));
+            try {
+                env.getLogger().log(Level.INFO,
+                        "Listening for new connection on port: " + port);
+                Socket clientSocket = serverSocket.accept();
+                DataOutputStream output = new DataOutputStream(clientSocket.getOutputStream());
+                DataInputStream input = new DataInputStream(clientSocket.getInputStream());
+                env.getLogger().log(Level.INFO, "Accepting new connection");
+                fnc.onConnect(new SecureSocket(clientSocket, output, input, env, null, null));
+            } catch(Exception e) {
+                env.getLogger().log(Level.INFO,
+                        String.format("Error while listening"),
+                        e);
+            }
         }
     }
 
@@ -120,16 +127,21 @@ public class SecureSocket {
             if(port<0) {
                 throw new Exception("Can't connect to negative port");
             }
-            env.getLogger().log(Level.INFO, "Attempting to connect to IP: " + ip + ", port: " + port);
+            env.getLogger().log(Level.INFO,
+                    "Attempting to connect to IP: " + ip + ", port: " + port+", user: "+peer.getUser().getUsername());
             Socket clientSocket = new Socket(ip, port);
             DataOutputStream output = new DataOutputStream(clientSocket.getOutputStream());
             DataInputStream input = new DataInputStream(clientSocket.getInputStream());
             env.getLogger().log(Level.INFO, "Connected to IP: " + ip + ", port: " + port);
             return new SecureSocket(clientSocket, output, input, env, peer.getUser(), null);
         } catch(Exception e) {
-            e.printStackTrace();
-            throw new ConnectionError(String.format("%s: Error connecting to IP: %s, port: %d",
-                    env.getUserInfo().getUsername(), peer.getServerInfo().getIp(), peer.getServerInfo().getPort()));
+            env.getLogger().log(Level.INFO, String.format("%s: Error connecting to IP: %s, port: %d, user: %s",
+                    env.getUserInfo().getUsername(), peer.getServerInfo().getIp(), peer.getServerInfo().getPort(),
+                    peer.getUser().getUsername()), e);
+//            throw new ConnectionError(String.format("%s: Error connecting to IP: %s, port: %d, user: %s",
+//                    env.getUserInfo().getUsername(), peer.getServerInfo().getIp(), peer.getServerInfo().getPort(),
+//                    peer.getUser().getUsername()));
+            return null;
         }
     }
     class MessagePair {
@@ -181,7 +193,8 @@ public class SecureSocket {
             oldMessages = new ConcurrentLinkedQueue<>();
             while(true) {
                 try {
-//                    log.log(Level.OFF, "Awaiting next message");
+                    boolean showDetailedDebug = false;
+                    if(showDetailedDebug) log.log(Level.INFO, "READER: Awaiting next message");
                     // Read message
 
 
@@ -193,10 +206,13 @@ public class SecureSocket {
                     byte[] payload = null;
 
                     String username = env.getUserInfo().getUsername();
+
+                    if(showDetailedDebug) log.log(Level.INFO, "READER: Reading headers size");
                     Integer headersSize = in.readInt();
 //                    log.log(Level.OFF, String.format("Read headers size: %d", headersSize));
 
                     byte[] headers = new byte[headersSize];
+                    if(showDetailedDebug) log.log(Level.INFO, "READER: Reading headers");
                     in.read(headers, 0, headersSize);
                     byte[] oldHeaders = new byte[headersSize];
                     for (int i = 0; i < headers.length; i++) {
@@ -225,19 +241,26 @@ public class SecureSocket {
                     }
                     payload = new byte[size];
 //                    log.log(Level.OFF, String.format("Reading payload of size: %d", size));
-                    in.read(payload, 0, size);
 
+                    if(showDetailedDebug) log.log(Level.INFO, "READER: Reading payload of size "+size.toString());
+                    in.read(payload, 0, size);
+                    if(showDetailedDebug) log.log("READER: got payload");
                     byte[] payloadFinal = null;
                     if(useEncryption) {
+                        if(showDetailedDebug) log.log("READER: decrypting payload");
                         payloadFinal = cipher.decrypt(payload);
                     }else{
+                        if(showDetailedDebug) log.log("READER: no decryption");
                         payloadFinal = payload;
                     }
 //                    log.log(Level.OFF,
 //                            String.format(
 //                                    "Received message of \n\tsize: %d, \n\tMyID: %d, \n\tResponseID: %d, \n\tclasscode: %d, \n\tname: %s",
 //                            size, myId, responseId, classCode, messageCodes[classCode].getName()));
-
+                    if(showDetailedDebug) log.log("READER: ok");
+                    if(showDetailedDebug) log.log(String.format("Classcode: %d", classCode));
+                    log.log(String.format("READER: Received %s from '%s'", messageCodes[classCode].getName(), peerUsername));
+                    if(showDetailedDebug) log.log("READER: ok ok");
                     //log.log(Level.INFO, new String(payloadFinal));
                     Message msg;// = Message.factory(classCode, payload);
                     msg = (Message)messageCodes[classCode].getConstructor().newInstance();
@@ -249,16 +272,13 @@ public class SecureSocket {
                         messageHandler = defaultHandlers.get(classCode);
                     }
                     oldMessages.add(msg);
-//                    log.log(Level.OFF, "Calling response handler");
+                    if(showDetailedDebug) log.log(Level.OFF, "Calling response handler");
                     messageHandler.handle(new ReceivedMessage(msg, SecureSocket.this, responseId, env));
-//                    log.log(Level.OFF, "Done calling response handler");
+                    if(showDetailedDebug) log.log(Level.OFF, "Done calling response handler");
                 } catch (Exception e) {
+                    log.log(Level.SEVERE, String.format("Error in reader thread with '%s'", peerUsername), e);
                     socketError();
                     if(shouldClose) return;
-                    else {
-                        log.log(Level.SEVERE, "Error in reader thread");
-                        e.printStackTrace();
-                    }
                 }
             }
         }
@@ -303,6 +323,7 @@ public class SecureSocket {
                         headersBytes = headers.array();
                     }
 
+                    log.log(String.format("Sending %s to '%s'", messageCodes[classCode].getName(), peerUsername));
 //                    log.log(Level.OFF, String.format(
 //                            "Sending message with \n\tID: %d, \n\tResponseID: %d, \n\tCode: %d, \n\tClass: %s, \n\tSize: %d, \n\tUsing encryption: %b",
 //                            id, nextMessage.respondingToMessage, classCode, messageCodes[classCode].getName(), payload.length, useEncryption));
@@ -316,12 +337,9 @@ public class SecureSocket {
                         activateEncryption();
                     }
                 } catch (Exception e) {
+                    log.log(Level.SEVERE, String.format("Exception during socket writer with '%s'", peerUsername), e);
                     socketError();
                     if(shouldClose) return;
-                    else {
-                        log.log(Level.SEVERE, "Exception during socket writer");
-                        e.printStackTrace();
-                    }
                 }
             }
         }

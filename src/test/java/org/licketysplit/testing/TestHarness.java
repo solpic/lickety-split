@@ -1,12 +1,14 @@
 package org.licketysplit.testing;
 
 import com.amazonaws.AmazonServiceException;
+import com.amazonaws.HttpMethod;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
 import com.amazonaws.services.ec2.model.*;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
 import com.jcraft.jsch.*;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
@@ -15,12 +17,16 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestHarness {
     public TestHarness() {
@@ -83,6 +89,71 @@ public class TestHarness {
         waitUntilState(toStop, "stopped");
     }
 
+//    JSch jsch = null;
+//    Object jschLock = new Object();
+//    JSch getJSch() throws Exception {
+//        synchronized (jschLock) {
+//            if(jsch==null) {
+//                jsch = new JSch();
+//                jsch.addIdentity("licketysplit-p2p.pem");
+//                jsch.setConfig("StrictHostKeyChecking", "no");
+//            }
+//        }
+//        return jsch;
+//    }
+//
+//    Map<String, Session> sessions= new HashMap<>();
+//    Session getSession(String host) throws Exception {
+//        synchronized (sessions) {
+//            if(sessions==null) {
+//                sessions = new HashMap<>();
+//            }
+//
+//            if(!sessions.containsKey(host)) {
+//
+//                Session session = getJSch().getSession("ec2-user", host);
+//                session.connect();
+//                sessions.put(host, session);
+//            }
+//            return sessions.get(host);
+//        }
+//    }
+
+    Map<String, ChannelSftp> sftps = new HashMap<>();
+    ChannelSftp getSftp(String host) throws Exception {
+        synchronized (sftps) {
+            if(!sftps.containsKey(host)) {
+                JSch jsch = new JSch();
+                jsch.addIdentity("licketysplit-p2p.pem");
+                jsch.setConfig("StrictHostKeyChecking", "no");
+                Session session = jsch.getSession("ec2-user", host);
+                session.connect();
+                ChannelSftp sftp = (ChannelSftp) session.openChannel("sftp");
+                sftp.connect();
+                sftps.put(host, sftp);
+            }
+            return sftps.get(host);
+        }
+    }
+
+//    Map<String, ChannelExec> execs;
+//    ChannelExec getExec(String host) throws Exception {
+//
+//        synchronized (execs) {
+//            if(execs==null) {
+//                execs = new HashMap<>();
+//            }
+//
+//            if(!execs.containsKey(host)) {
+//                Session session = getSession(host);
+//                ChannelExec channel = (ChannelExec)session.openChannel("exec");
+//                channel.setCommand(cmd);
+//                channel.connect();
+//            }
+//        }
+//    }
+
+
     void upload(String host, String[] sources, String[] destinations) throws Exception {
         JSch jSch = new JSch();
         jSch.addIdentity("licketysplit-p2p.pem");
@@ -91,6 +162,7 @@ public class TestHarness {
         session.connect();
         ChannelSftp sftp = (ChannelSftp) session.openChannel("sftp");
         sftp.connect();
+        //ChannelSftp sftp = getSftp(host);
         for (int i = 0; i < sources.length; i++) {
             System.out.println(String.format(
                     "Uploading file: %s, as: %s, to host: %s",
@@ -103,17 +175,65 @@ public class TestHarness {
     }
 
     void download(String host, String src, String dst) throws Exception {
-        JSch jSch = new JSch();
-        jSch.addIdentity("licketysplit-p2p.pem");
-        jSch.setConfig("StrictHostKeyChecking", "no");
-        Session session = jSch.getSession("ec2-user", host);
-        session.connect();
-        ChannelSftp sftp = (ChannelSftp) session.openChannel("sftp");
-        sftp.connect();
+//        JSch jSch = new JSch();
+//        jSch.addIdentity("licketysplit-p2p.pem");
+//        jSch.setConfig("StrictHostKeyChecking", "no");
+//        Session session = jSch.getSession("ec2-user", host);
+//        session.connect();
+//        ChannelSftp sftp = (ChannelSftp) session.openChannel("sftp");
+//        sftp.connect();
+
+
+        ChannelSftp sftp = getSftp(host);
         sftp.get(src, dst);
-        sftp.exit();
-        sftp.disconnect();
-        session.disconnect();
+//        sftp.exit();
+//        sftp.disconnect();
+//        session.disconnect();
+    }
+
+    void checkAssertion(String line) throws Exception {
+        String assertStr = "Assert: ";
+        int i = line.indexOf(assertStr);
+        if(i>=0) {
+            int comma = line.indexOf(",", i);
+            String valStr = line.substring(i+assertStr.length(), comma);
+
+            boolean val = false;
+            if("true".equals(valStr)) val = true;
+            else if("false".equals(valStr)) val = false;
+            else throw new Exception("Assert error");
+
+            String msg = line.substring(comma+1, line.length());
+            assertEquals(val, true, msg);
+        }
+    }
+
+    void runSSH(String host, String cmd) throws Exception {
+//        System.out.println(String.format("Running cmd: %s, on host %s", cmd, host));
+//        JSch jSch = new JSch();
+//        jSch.addIdentity("licketysplit-p2p.pem");
+//        jSch.setConfig("StrictHostKeyChecking", "no");
+//        Session session = jSch.getSession("ec2-user", host);
+        JSch jsch = new JSch();
+        jsch.addIdentity("licketysplit-p2p.pem");
+        jsch.setConfig("StrictHostKeyChecking", "no");
+        Session session = jsch.getSession("ec2-user", host);
+        session.connect();
+        //session.connect();
+        ChannelExec channel = (ChannelExec)session.openChannel("exec");
+        channel.setCommand(cmd);
+        channel.connect();
+        InputStream input = channel.getInputStream();
+        BufferedReader br = new BufferedReader(new InputStreamReader(input, "UTF-8"));
+        String line;
+        while ((line = br.readLine()) != null) {
+            System.out.println(line);
+            checkAssertion(line);
+        }
+        channel.disconnect();
+//        session.disconnect();
+
+        System.out.println(String.format("Done running %s on host %s", cmd, host));
     }
 
 
@@ -137,27 +257,6 @@ public class TestHarness {
         runLocal(cmdPath);
     }
 
-    void runSSH(String host, String cmd) throws Exception {
-        System.out.println(String.format("Running cmd: %s, on host %s", cmd, host));
-        JSch jSch = new JSch();
-        jSch.addIdentity("licketysplit-p2p.pem");
-        jSch.setConfig("StrictHostKeyChecking", "no");
-        Session session = jSch.getSession("ec2-user", host);
-        session.connect();
-        ChannelExec channel = (ChannelExec)session.openChannel("exec");
-        channel.setCommand(cmd);
-        channel.connect();
-        InputStream input = channel.getInputStream();
-        BufferedReader br = new BufferedReader(new InputStreamReader(input, "UTF-8"));
-        String line;
-        while ((line = br.readLine()) != null) {
-            System.out.println(line);
-        }
-        channel.disconnect();
-        session.disconnect();
-
-        System.out.println(String.format("Done running %s on host %s", cmd, host));
-    }
 
     void startInstanceCount(List<Instance> instances, long instancesCount) throws Exception {
         long runningCount = instances.stream()
@@ -195,6 +294,21 @@ public class TestHarness {
         public P2PTestInfo() {}
     }
 
+    public String getPresignedURL(String bucketName, String objectKey, double daysExpiration) throws Exception {
+        java.util.Date expiration = new java.util.Date();
+        long expTimeMillis = expiration.getTime();
+        expTimeMillis += (long)(daysExpiration*1000*60*60*24);
+        expiration.setTime(expTimeMillis);
+
+        final AmazonS3 s3 = AmazonS3ClientBuilder.standard().withRegion(Regions.US_EAST_1).build();
+        GeneratePresignedUrlRequest generatePresignedUrlRequest =
+                new GeneratePresignedUrlRequest(bucketName, objectKey)
+                        .withMethod(HttpMethod.GET)
+                        .withExpiration(expiration);
+        URL url = s3.generatePresignedUrl(generatePresignedUrlRequest);
+        return url.toString();
+    }
+
     public void uploadToBucket(String file, String key, String bucketName) throws Exception {
         System.out.format("Uploading %s to S3 bucket %s...\n", file, bucketName);
 
@@ -210,6 +324,8 @@ public class TestHarness {
     String jarPath = "C:\\Users\\meps5\\IdeaProjects\\licketysplit\\target\\lickety-split-1.0-SNAPSHOT-jar-with-dependencies.jar";
     String jarDest = "p2p.jar";
     P2PTestInfo createAndUploadFiles(long remoteCount, long localCount, boolean shouldRedeploy) throws Exception {
+        String testDataPath = "test-data";
+        FileUtils.cleanDirectory(new File(testDataPath));
         int listenPort = 15000;
         List<Instance> instances = getInstances().stream()
                 .filter(i->i.getState().getName().equals("running"))
@@ -219,7 +335,7 @@ public class TestHarness {
         String rootUser;
         for (Instance instance : instances) {
             if(peerNumber>=remoteCount) break;
-            String username = String.format("remote-testuser-%d", peerNumber);
+            String username = String.format("testuser-%d-remote", peerNumber);
             peers.add(new TestNetworkManager.PeerGenInfo(
                     username,
                     instance.getPublicIpAddress(),
@@ -232,7 +348,7 @@ public class TestHarness {
             peerNumber++;
         }
         for (long i = 0; i < localCount; i++) {
-            String username = String.format("local-testuser-%d", peerNumber);
+            String username = String.format("testuser-%d-local", peerNumber);
             peers.add(new TestNetworkManager.PeerGenInfo(
                     username,
                     "localhost",
@@ -245,7 +361,9 @@ public class TestHarness {
             peerNumber++;
         }
 
-        String testDataPath = "test-data";
+
+        String jarurl = getPresignedURL("licketysplit-jar", "jar", 5);
+        String wgetCmd = String.format("wget -O %s \"%s\"", jarDest, jarurl);
         TestNetworkManager testNetworkManager = new TestNetworkManager();
         TestNetworkManager.TestNetworkDataInfo data = testNetworkManager.generateNetworkWithPeers(testDataPath, peers);
 
@@ -264,7 +382,7 @@ public class TestHarness {
             sources.add(data.idKeys.get(peer.username));
             dest.add(TestRunner.idKeyFilename);
 
-            if(shouldRedeploy||peer.isLocal) {
+            if(peer.isLocal) {
                 sources.add(jarPath);
                 dest.add(jarDest);
             }
@@ -274,8 +392,8 @@ public class TestHarness {
                 rootStr = "isroot=yes";
             }
             String cmd = String.format(
-                    "killall java8\njava8 -jar %s peerstart %s %s %s %s",
-                    jarDest, peer.username, peer.ip, Integer.toString(peer.port), rootStr
+                    "killall java8\nrm %s\n%s\njava8 -jar %s peerstart %s %s %s %s",
+                    jarDest, wgetCmd, jarDest, peer.username, peer.ip, Integer.toString(peer.port), rootStr
             );
 
             String localPath = null;
@@ -321,8 +439,10 @@ public class TestHarness {
             cmdFile.deleteOnExit();
         }
         AtomicInteger runningCount = new AtomicInteger(0);
+        ConcurrentHashMap<String, Boolean> runningMap = new ConcurrentHashMap<>();
         for (TestNetworkManager.PeerGenInfo peer : peers) {
             runningCount.addAndGet(1);
+            runningMap.put(peer.username, true);
             new Thread(() -> {
                 try {
                     if(!peer.isLocal) {
@@ -334,21 +454,52 @@ public class TestHarness {
                     e.printStackTrace();
                 }
                 System.out.println("Decrementing runner count");
+                runningMap.put(peer.username, false);
                 runningCount.decrementAndGet();
             }).start();
         }
+
+        String logFolder = "remote-logs";
+
+        FileUtils.cleanDirectory(new File(logFolder));
         do {
             Thread.sleep(1000);
             if(runningCount.get()==0) {
                 break;
             }else{
-                System.out.println(String.format("%d peers still running", runningCount.get()));
+                String peerlist = runningMap.entrySet().stream()
+                        .filter(e -> e.getValue())
+                        .map(e -> e.getKey())
+                        .collect(Collectors.joining(", "));
+                System.out.println(String.format("%d peers still running: %s", runningCount.get(), peerlist));
+                downloadLogsRetry(peers, logFolder, 3);
             }
         } while(true);
 
+        HashMap<String, String> logFiles = downloadLogsRetry(peers, logFolder, 3);
 
-        String logFolder = "remote-logs";
-        FileUtils.cleanDirectory(new File(logFolder));
+
+        P2PTestInfo results = new P2PTestInfo();
+        results.data = data;
+        results.logFolder = logFolder;
+        results.logFiles = logFiles;
+        return results;
+    }
+
+    HashMap<String, String> downloadLogsRetry(List<TestNetworkManager.PeerGenInfo> peers, String logFolder, int retries) throws Exception {
+        try {
+            return downloadLogs(peers, logFolder);
+        } catch(Exception e) {
+            if(retries==0) {
+                throw e;
+            }else{
+                System.out.println("Retrying download logs");
+            }
+        }
+        return null;
+    }
+
+    HashMap<String, String> downloadLogs(List<TestNetworkManager.PeerGenInfo> peers, String logFolder) throws Exception {
         HashMap<String, String> logFiles = new HashMap<>();
         for (TestNetworkManager.PeerGenInfo peer : peers) {
             String src = "log";
@@ -371,12 +522,7 @@ public class TestHarness {
             }
             logFiles.put(peer.username, dest);
         }
-
-        P2PTestInfo results = new P2PTestInfo();
-        results.data = data;
-        results.logFolder = logFolder;
-        results.logFiles = logFiles;
-        return results;
+        return logFiles;
     }
     private void localUpload(String localPath, String[] src, String[] dst) throws Exception{
         for (int i = 0; i < src.length; i++) {
@@ -435,7 +581,10 @@ public class TestHarness {
     }
 
     public P2PTestInfo generateNetwork(long remoteCount, long localCount, boolean shouldRedeploy) throws Exception {
-        if(shouldRedeploy) cleanAndPackage();
+        if(shouldRedeploy) {
+            cleanAndPackage();
+            uploadToBucket(jarPath, "jar", "licketysplit-jar");
+        }
         ec2 = AmazonEC2ClientBuilder.defaultClient();
         List<Instance> instances = getInstances();
         startInstanceCount(instances, remoteCount);

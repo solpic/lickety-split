@@ -34,12 +34,14 @@ public class FileSharer {
         @Override
         public void handle(ReceivedMessage m) throws Exception {
             ChunkAvailabilityResponse decodedMessage = m.getMessage();
+            m.log(String.format("Chunk availability response "));
             PeerChunkInfo peerChunkInfo = decodedMessage.peerChunkInfo;
             dManager.addPeerAndRequestChunkIfPossible(peerChunkInfo, m.getConn(), this.userInfo);
         }
     }
 
     public DownloadManager download(FileInfo fileInfo) throws Exception {
+        env.log(String.format("Downloading %s", fileInfo.name));
         DownloadManager dManager = new DownloadManager(fileInfo, this.env);
         Thread dThread = new Thread(dManager);
         dThread.start();

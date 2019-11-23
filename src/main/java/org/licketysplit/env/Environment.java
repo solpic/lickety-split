@@ -6,6 +6,7 @@ import org.licketysplit.filesharer.FileSharer;
 import org.licketysplit.securesocket.peers.PeerManager;
 import org.licketysplit.securesocket.peers.UserInfo;
 import org.licketysplit.syncmanager.FileManager;
+import org.licketysplit.syncmanager.SyncManager;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -15,6 +16,9 @@ public class Environment {
         return pm;
     }
 
+    public void log(String msg)  {
+        logger.log(msg);
+    }
     public UserInfo getUserInfo() {
         return userInfo;
     }
@@ -89,6 +93,16 @@ public class Environment {
 
     public void setInfo(PeerInfoDirectory info) {
         this.info = info;
+    }
+
+    SyncManager syncManager;
+
+    public SyncManager getSyncManager() {
+        return syncManager;
+    }
+
+    public void setSyncManager(SyncManager syncManager) {
+        this.syncManager = syncManager;
     }
 
     public Environment(UserInfo userInfo, PeerManager pm, boolean debugEnabled) {

@@ -76,6 +76,7 @@ public class FileManager {
     }
 
     public String getSharedDirectoryPath(String fileName){
+
         return this.env.getDirectory(fileName);
 //        try{
 //            JSONObject obj = new JsonToFile(new File(this.getConfigsPath( ".configs.txt"))).getJSONObject();

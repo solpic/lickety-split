@@ -13,6 +13,8 @@ import org.licketysplit.syncmanager.FileInfo;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+
 public class DownloadManager implements Runnable {
 
     private FileAssembler fileAssembler;
@@ -41,6 +43,7 @@ public class DownloadManager implements Runnable {
             PeerDownloadInfo peer;
             UserInfo user;
             int chunk;
+            env.getLogger().log(Level.INFO, "Starting download manager thread");
             while(!isFinished || !isCanceled){
                 if((user = this.getFreeUser()) != null){
                     peer = this.getPeers().get(user);
@@ -81,6 +84,7 @@ public class DownloadManager implements Runnable {
     }
 
     public void addPeerAndRequestChunkIfPossible(PeerChunkInfo peerInfo, SecureSocket socket, UserInfo userInfo) throws Exception {
+        env.getLogger().log(String.format("Peer %s has chunk", userInfo.getUsername()));
         this.peers.put(userInfo, new PeerDownloadInfo(peerInfo, socket)); //TODO(will) check if possible
         this.updateAvailableChunks(peerInfo);
         this.makeUserAvailable(userInfo);

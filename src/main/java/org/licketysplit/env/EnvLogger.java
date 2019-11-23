@@ -2,6 +2,8 @@ package org.licketysplit.env;
 
 import java.io.File;
 import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Date;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -65,6 +67,20 @@ public class EnvLogger {
             }*/
         }
 
+    }
+
+    public void log(Level lvl, String msg, Exception e) {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        e.printStackTrace(pw);
+        String stackTrace = sw.toString();
+
+        log(lvl,
+                String.format("%s\n%s", msg, stackTrace));
+    }
+
+    public void log(String msg) {
+        log(Level.INFO, msg);
     }
 
     public void log(Level lvl, String msg) {

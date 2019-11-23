@@ -52,9 +52,9 @@ public class FileAssembler implements Runnable{
                         this.file.write(chunk.bytes);
                         this.completed.add(chunk.chunk);
                         this.numOfChunks++;
-                        System.out.println("CURRENT " + this.numOfChunks + " GOAL: " + this.lengthInChunks);
+                        env.log("CURRENT " + this.numOfChunks + " GOAL: " + this.lengthInChunks);
                     } else{
-                        System.out.println("DUPLICATE");
+                        env.log("DUPLICATE");
                     }
                 }
                 if(this.chunks.isEmpty() && this.numOfChunks == this.lengthInChunks){
@@ -62,11 +62,11 @@ public class FileAssembler implements Runnable{
                     Collections.sort(completedList);
                     for(int i = 0; i < completedList.size(); i++){
                         if(completedList.get(i) != i){
-                            System.out.println("wrong " + i);
+                            env.log("wrong " + i);
                             return;
                         }
                     }
-                    System.out.println("FINISHED AND PERFECT");
+                    env.log("FINISHED AND PERFECT");
                     return;
                 }
             }

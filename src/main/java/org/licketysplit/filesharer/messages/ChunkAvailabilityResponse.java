@@ -15,11 +15,4 @@ public class ChunkAvailabilityResponse extends JSONMessage {
     public ChunkAvailabilityResponse() {
         this.peerChunkInfo = new PeerChunkInfo();
     }
-
-    @DefaultHandler(type = ChunkAvailabilityRequest.class)
-    public static class ChunkAvailabilityResponseHandler implements MessageHandler {
-        @Override
-        public void handle(ReceivedMessage m) throws Exception {
-        }
-    }
 }

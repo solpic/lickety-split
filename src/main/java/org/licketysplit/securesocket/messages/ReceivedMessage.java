@@ -9,6 +9,10 @@ public class ReceivedMessage {
     int respondId;
     Environment env;
 
+    public void log(String msg) throws Exception {
+        env.getLogger().log(msg);
+    }
+
     public void respond(Message m, MessageHandler handler) throws Exception {
         conn.sendMessage(m, handler, respondId);
     }
