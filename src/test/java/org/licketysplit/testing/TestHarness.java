@@ -1,8 +1,12 @@
 package org.licketysplit.testing;
 
+import com.amazonaws.AmazonServiceException;
+import com.amazonaws.regions.Regions;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
 import com.amazonaws.services.ec2.model.*;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.jcraft.jsch.*;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
@@ -191,9 +195,21 @@ public class TestHarness {
         public P2PTestInfo() {}
     }
 
+    public void uploadToBucket(String file, String key, String bucketName) throws Exception {
+        System.out.format("Uploading %s to S3 bucket %s...\n", file, bucketName);
+
+        final AmazonS3 s3 = AmazonS3ClientBuilder.standard().withRegion(Regions.US_EAST_1).build();
+        try {
+            s3.putObject(bucketName, key, new File(file));
+        } catch (AmazonServiceException e) {
+            System.err.println(e.getErrorMessage());
+            System.exit(1);
+        }
+    }
+
     String jarPath = "C:\\Users\\meps5\\IdeaProjects\\licketysplit\\target\\lickety-split-1.0-SNAPSHOT-jar-with-dependencies.jar";
     String jarDest = "p2p.jar";
-    P2PTestInfo createAndUploadFiles(long remoteCount, long localCount) throws Exception {
+    P2PTestInfo createAndUploadFiles(long remoteCount, long localCount, boolean shouldRedeploy) throws Exception {
         int listenPort = 15000;
         List<Instance> instances = getInstances().stream()
                 .filter(i->i.getState().getName().equals("running"))
@@ -248,8 +264,10 @@ public class TestHarness {
             sources.add(data.idKeys.get(peer.username));
             dest.add(TestRunner.idKeyFilename);
 
-            sources.add(jarPath);
-            dest.add(jarDest);
+            if(shouldRedeploy||peer.isLocal) {
+                sources.add(jarPath);
+                dest.add(jarDest);
+            }
 
             String rootStr = "";
             if(peer.isRoot) {
@@ -416,11 +434,11 @@ public class TestHarness {
         }
     }
 
-    public P2PTestInfo generateNetwork(long remoteCount, long localCount) throws Exception {
-        cleanAndPackage();
+    public P2PTestInfo generateNetwork(long remoteCount, long localCount, boolean shouldRedeploy) throws Exception {
+        if(shouldRedeploy) cleanAndPackage();
         ec2 = AmazonEC2ClientBuilder.defaultClient();
         List<Instance> instances = getInstances();
         startInstanceCount(instances, remoteCount);
-        return createAndUploadFiles(remoteCount, localCount);
+        return createAndUploadFiles(remoteCount, localCount, shouldRedeploy);
     }
 }
