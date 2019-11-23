@@ -10,7 +10,17 @@
     <properties>
         <junit-jupiter.version>5.5.2</junit-jupiter.version>
         <maven.test.skip>true</maven.test.skip>
+        <should.redeploy>no</should.redeploy>
     </properties>
+
+    <profiles>
+        <profile>
+            <id>redeploy</id>
+            <properties>
+                <should.redeploy>yes</should.redeploy>
+            </properties>
+        </profile>
+    </profiles>
 
     <dependencies>
         <dependency>
@@ -107,12 +117,16 @@
 
     <build>
         <plugins>
-
             <!-- Need at least 2.22.0 to support JUnit 5 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.0.0-M3</version>
+                <configuration>
+                    <systemPropertyVariables>
+                        <shouldRedeploy>${should.redeploy}</shouldRedeploy>
+                    </systemPropertyVariables>
+                </configuration>
             </plugin>
 
             <plugin>
