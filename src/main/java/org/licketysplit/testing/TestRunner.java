@@ -102,10 +102,10 @@ public class TestRunner {
             FileUtils.writeStringToFile(hello, contents, (String)null);
             sm.addFile(hello.getPath());
             Thread.sleep(20000);
-        }else if(usernumber==1){
+        }else{
             Thread.sleep(15000);
-            env.getFS().download(new FileInfo("hello.txt", false, contents.length()));
-            Thread.sleep(5000);
+//            env.getFS().download(new FileInfo("hello.txt", false, contents.length()));
+//            Thread.sleep(5000);
             String downloadedContents = FileUtils.readFileToString(
                     new File(env.getFM().getSharedDirectoryPath("hello.txt")), "UTF-8");
 
@@ -114,8 +114,6 @@ public class TestRunner {
             String message = equals?"Files match":String.format("Files don't match, contents: %s, downloaded: %s", contents, downloadedContents);
             env.log(String.format("Assert: %b, Message: %s", equals, message));
 
-        }else{
-            Thread.sleep(30000);
         }
 //        if(usernumber==1) {
 //            env.log("Running user 1 handler");

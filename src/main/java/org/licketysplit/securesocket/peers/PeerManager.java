@@ -274,11 +274,11 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
 
             byte[] encryptedKey = encryptor.encrypt(symmetricKey.getKey().getEncoded());
             byte[] encryptedIv = encryptor.encrypt(symmetricKey.getIv());
-//        m.getEnv().getLogger().log(
-//                Level.INFO, String.format("Sending KEY to %s: %s, IV: %s",
-//                        toUser,
-//                        Base64.getEncoder().encodeToString(symmetricKey.getKey().getEncoded()),
-//                        Base64.getEncoder().encodeToString(symmetricKey.getIv())));
+        m.getEnv().getLogger().log(
+                Level.INFO, String.format("Sending KEY to %s: %s, IV: %s",
+                        toUser,
+                        Base64.getEncoder().encodeToString(symmetricKey.getKey().getEncoded()),
+                        Base64.getEncoder().encodeToString(symmetricKey.getIv())));
 //        env.getDebug().trigger("handshaking");
 
 
@@ -386,11 +386,11 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
             byte[] key = decryptor.decrypt(msg.getEncryptedKey());
             byte[] iv = decryptor.decrypt(msg.getEncryptedIv());
 
-//        log.log(
-//                Level.INFO, String.format("Received KEY from: %s, Key: %s, IV: %s",
-//                        toUser,
-//                        Base64.getEncoder().encodeToString(key),
-//                        Base64.getEncoder().encodeToString(iv)));
+        log.log(
+                Level.INFO, String.format("Received KEY from: %s, Key: %s, IV: %s",
+                        toUser,
+                        Base64.getEncoder().encodeToString(key),
+                        Base64.getEncoder().encodeToString(iv)));
 
             SymmetricCipher symmetricCipher = new SymmetricCipher();
             symmetricCipher.setKey(key, iv);

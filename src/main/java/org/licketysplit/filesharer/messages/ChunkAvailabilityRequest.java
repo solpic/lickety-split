@@ -30,7 +30,7 @@ public class ChunkAvailabilityRequest extends JSONMessage {
             m.log("3");
             if( fm.hasFile(requestedFileName)) {
                 try {
-                    m.respond(new ChunkAvailabilityResponse(fm.getFile(requestedFileName), tstMsg.fileInfo), null);
+                    m.respond(new ChunkAvailabilityResponse(env, fm.getFile(requestedFileName), tstMsg.fileInfo), null);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }

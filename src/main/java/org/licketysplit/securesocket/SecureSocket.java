@@ -36,6 +36,7 @@ public class SecureSocket {
 
     private SymmetricCipher cipher;
     private boolean useEncryption = false;
+    private Object encryptionLock = new Object();
 
     public SymmetricCipher getCipher() {
         return cipher;

@@ -25,6 +25,11 @@ public class PeerChunkInfo {
          }
     }
 
+    public PeerChunkInfo(ArrayList<Integer> chunks, FileInfo fileInfo){
+        this.chunks = chunks;
+        this.fileInfo = fileInfo;
+    }
+
     public boolean hasChunk(int chunk){
         for(int i = 0; i < this.chunks.size(); i++){
             if(this.chunks.get(i) == chunk){

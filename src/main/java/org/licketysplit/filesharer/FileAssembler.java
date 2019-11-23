@@ -18,9 +18,10 @@ public class FileAssembler implements Runnable{
     private RandomAccessFile file;
     private BlockingQueue<Chunk> chunks;
     private HashSet<Integer> completed;
+    private IsFinished isFinished;
 
 
-    public FileAssembler(FileInfo fileInfo, Environment env, int lengthInChunks) throws IOException {
+    public FileAssembler(FileInfo fileInfo, Environment env, int lengthInChunks, IsFinished isFinished) throws IOException {
         this.env = env;
         this.fileInfo = fileInfo;
         this.lengthInChunks = lengthInChunks;
@@ -32,6 +33,7 @@ public class FileAssembler implements Runnable{
         this.file.setLength(fileInfo.getLength()); // Set file length to desired file's length
         this.chunks = new LinkedBlockingQueue<Chunk>();
         this.completed = new HashSet<Integer>();
+        this.isFinished = isFinished;
     }
 
     public FileInfo getFileInfo() {
@@ -66,6 +68,8 @@ public class FileAssembler implements Runnable{
                             return;
                         }
                     }
+                    this.isFinished.setFinished(true);
+                    this.file.close();
                     env.log("FINISHED AND PERFECT");
                     return;
                 }
@@ -75,14 +79,8 @@ public class FileAssembler implements Runnable{
         }
     }
 
-    public boolean saveChunk(byte[] data, int chunk){
+    public void saveChunk(byte[] data, int chunk){
         this.chunks.add(new Chunk(data, chunk));
-        if (this.numOfChunks == this.lengthInChunks){
-            return true;
-        }
-
-        return false;
-
     }
 
     public void cancel(){
