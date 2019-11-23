@@ -69,6 +69,7 @@ public class FileAssembler implements Runnable{
                         }
                     }
                     this.isFinished.setFinished(true);
+                    this.file.close();
                     System.out.println("FINISHED AND PERFECT");
                     return;
                 }

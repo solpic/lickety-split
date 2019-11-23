@@ -2,6 +2,7 @@ package org.licketysplit.syncmanager;
 
 import org.json.JSONObject;
 import org.licketysplit.env.Environment;
+import org.licketysplit.filesharer.DownloadManager;
 import org.licketysplit.syncmanager.messages.AddFileNotification;
 import org.licketysplit.securesocket.SecureSocket;
 import org.licketysplit.securesocket.peers.PeerManager;
@@ -13,6 +14,7 @@ import org.licketysplit.syncmanager.messages.UpdateManifestRequest;
 import java.io.File;
 import java.io.IOException;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
@@ -49,10 +51,10 @@ public class SyncManager {
 
         this.env.getLogger().log(Level.INFO, "Adding File: " + info.getName());
 
-//        ConcurrentHashMap<UserInfo, SecureSocket> peers = this.env.getPm().getPeers();
-//        for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
-//            peer.getValue().sendFirstMessage(new AddFileNotification(info), null);
-//        }
+        ConcurrentHashMap<UserInfo, SecureSocket> peers = this.env.getPm().getPeers();
+        for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
+            peer.getValue().sendFirstMessage(new AddFileNotification(info), null);
+        }
     }
 
     public void deleteFile(String fileName) throws Exception {
@@ -68,7 +70,15 @@ public class SyncManager {
     }
 
     public void startUp() {
+        //0. Connect to network
+        //1. Check for configs, manifest folder
+        //2. Update manifest
+        //3. return file infos
 
+    }
+
+    public void downloadFile(FileInfo fileInfo) throws Exception {
+        this.env.getFS().download(fileInfo);
     }
 
     public void syncManifests() throws Exception {
@@ -79,5 +89,9 @@ public class SyncManager {
             peer.getValue().sendFirstMessage(new UpdateManifestRequest(manifest), null);
         }
 
+    }
+
+    public HashMap<String, DownloadManager> getDownloads(){
+        return this.env.getFS().getDownloads();
     }
 }

@@ -62,7 +62,7 @@ public class AddFileTest{
                     pm.initialize(peer);
                     pm.listenInNewThread();
                     env.getLogger().log(Level.INFO, "Sending update");
-                    sm.addFile(System.getProperty("user.home") + "/2.png");
+//                    sm.addFile(fm.System.getProperty("user.home") + "/2.png");
                     if(this.currFolder == 0){
                         System.out.println("AWAKE: " + username);
                     }
@@ -75,7 +75,7 @@ public class AddFileTest{
             }
         }
 
-        for(int i = 0; i<6; i++) {
+        for(int i = 0; i<5; i++) {
             ServerThread serverThread = new ServerThread(i);
             serverThread.start();
         }
@@ -85,14 +85,15 @@ public class AddFileTest{
         PeerManager pm = new PeerManager();
         Environment env = new Environment(user, pm);
         String directory = "Test";
-        String configs = "configs1";
+        String configs = "configs-default";
         SyncManager sm = new SyncManager();
         initialize(env, fs, fm, pm, sm, directory, configs);
         pm.listenInNewThread();
         Thread.sleep(3000);
-        File file = new File(System.getProperty("user.home") + "/2.png");
-        fs.download(new FileInfo("2.png", false, (int) file.length()));
-
+//        File file = new File(System.getProperty("user.home") + "/2.png");
+        sm.addFile(System.getProperty("user.home") + "/2.png");
+        sm.addFile(System.getProperty("user.home") + "/3.png");
+//        sm.addFile(System.getProperty("user.home") + "/4.png");
         // Thread.sleep(10000)
         while(true){}
 

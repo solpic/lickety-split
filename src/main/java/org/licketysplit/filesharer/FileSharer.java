@@ -9,17 +9,30 @@ import org.licketysplit.securesocket.messages.ReceivedMessage;
 import org.licketysplit.securesocket.peers.UserInfo;
 import org.licketysplit.syncmanager.FileInfo;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+
+interface UpdateDownloads{
+    void update();
+}
 
 public class FileSharer {
     private Environment env;
+    private HashMap<String, DownloadManager> downloads;
 
     public FileSharer() {
+        this.downloads = new HashMap<String, DownloadManager>();
     }
 
     public void setEnv(Environment env) {
         this.env = env;
+    }
+
+    public HashMap<String, DownloadManager> getDownloads(){
+        return this.downloads;
     }
 
     public static class ChunkAvailabilityRequestHandler implements MessageHandler {
@@ -38,9 +51,11 @@ public class FileSharer {
             dManager.addPeerAndRequestChunkIfPossible(peerChunkInfo, m.getConn(), this.userInfo);
         }
     }
-
     public DownloadManager download(FileInfo fileInfo) throws Exception {
-        DownloadManager dManager = new DownloadManager(fileInfo, this.env);
+        UpdateDownloads updateDownloads = () -> this.downloads.remove(fileInfo);
+        DownloadManager dManager = new DownloadManager(fileInfo, this.env, updateDownloads);
+        this.downloads.put(fileInfo.getName(), dManager);
+        this.env.getLogger().log(Level.INFO, "DOWNLOADS SIZE: " + this.downloads.size());
         Thread dThread = new Thread(dManager);
         dThread.start();
         ConcurrentHashMap<UserInfo, SecureSocket> peers = this.env.getPm().getPeers();
@@ -50,5 +65,17 @@ public class FileSharer {
         }
 
         return dManager; // So UI has access to download manager (primarily for cancellation)
+    }
+
+    public boolean downloadInProgress(FileInfo fileInfo){
+        return this.downloads.containsKey(fileInfo.getName());
+    }
+
+    public ArrayList<Integer> getChunks(FileInfo fileInfo){
+        return this.downloads.get(fileInfo.getName()).getCompletedChunks();
+    }
+
+    public int getChunksLength(FileInfo fileInfo){
+        return this.downloads.containsKey(fileInfo.getName()) ? this.downloads.get(fileInfo.getName()).getCompletedChunks().size() : -1;
     }
 }
