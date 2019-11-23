@@ -115,6 +115,9 @@ public class SecureSocket {
     //</editor-fold>
     //<editor-fold desc="Factories">
     public static void listen(int port, NewConnectionCallback fnc, Environment env) throws Exception {
+        if(port<=0) {
+            throw new Exception("Can't listen on negative port");
+        }
         ServerSocket serverSocket = new ServerSocket(port);
         while(true) {
             //env.getLogger().log(Level.INFO,
@@ -139,6 +142,9 @@ public class SecureSocket {
         try {
             String ip = peer.getServerInfo().getIp();
             int port = peer.getServerInfo().getPort();
+            if(port<0) {
+                throw new Exception("Can't connect to negative port");
+            }
             env.getLogger().log(Level.INFO, "Attempting to connect to IP: " + ip + ", port: " + port);
             Socket clientSocket = new Socket(ip, port);
             DataOutputStream output = new DataOutputStream(clientSocket.getOutputStream());

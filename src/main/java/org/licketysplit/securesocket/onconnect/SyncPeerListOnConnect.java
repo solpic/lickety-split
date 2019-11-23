@@ -21,7 +21,16 @@ public class SyncPeerListOnConnect implements NewConnectionHandler {
             PeerInfoDirectory info = lst.getInfo();
             env.getInfo().syncInfo(info);
             for (PeerManager.PeerAddress peer : lst.getPeerList()) {
-                m.getEnv().getPm().addPeer(peer);
+
+                try {
+                    m.getEnv().getPm().addPeer(peer);
+                } catch(Exception e) {
+                    env.getLogger().log(Level.SEVERE,
+                            String.format("Couldn't connect to peer %s at ip %s, port %d",
+                                    peer.getUser().getUsername(),
+                                    peer.getServerInfo().getIp(),
+                                    peer.getServerInfo().getPort()));
+                }
             }
         });
     }

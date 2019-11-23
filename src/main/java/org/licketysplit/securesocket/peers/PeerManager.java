@@ -146,13 +146,27 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
     }
 
     public void start() throws Exception {
-        listenInNewThread();
+        new Thread(() -> {
+            try {
+                listenInNewThread();
 
-        Map<String, PeerInfoDirectory.PeerInfo> peers = env.getInfo().getPeers();
-        for (Map.Entry<String, PeerInfoDirectory.PeerInfo> peer : peers.entrySet()) {
-            PeerAddress address = peer.getValue().convertToPeerAddress();
-            addPeer(address);
-        }
+                Map<String, PeerInfoDirectory.PeerInfo> peers = env.getInfo().getPeers();
+                for (Map.Entry<String, PeerInfoDirectory.PeerInfo> peer : peers.entrySet()) {
+                    try {
+                        PeerAddress address = peer.getValue().convertToPeerAddress();
+                        addPeer(address);
+                    } catch(Exception e) {
+                        env.getLogger().log(Level.SEVERE,
+                                String.format("Couldn't connect to peer %s at ip %s, port %s",
+                                        peer.getValue().getUsername(),
+                                        peer.getValue().getServerIp(),
+                                        peer.getValue().getServerPort()));
+                    }
+                }
+            }catch(Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
     }
 
     public void confirmPeer(UserInfo user, SecureSocket sock) throws Exception {
@@ -161,7 +175,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
             if(oldVal==null) {
                 sock.setUserInfo(user);
                 peerConfirmed(user, sock);
-                //logPeerList();
+                logPeerList();
             }
         }
     }
@@ -170,13 +184,14 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         StringBuilder fmt = new StringBuilder();
         fmt.append("Peer list ("+peers.size()+" peers): \n");
         for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
-            fmt.append(String.format("Username: %s\n", peer.getKey().getUsername()));
+            fmt.append(String.format("\tUsername: %s\n", peer.getKey().getUsername()));
         }
         log.log(Level.INFO, fmt.toString());
     }
 
     public void peerConfirmed(UserInfo user, SecureSocket sock) throws Exception {
         log.log(Level.INFO, "New peer '"+user.getUsername()+"' has been confirmed");
+        log.log(Level.INFO, "Total peer count: "+peers.size());
         env.getDebug().trigger("peerConfirmed", user, sock);
         for (NewConnectionHandler handler : onConnectHandlers) {
             handler.connectionConfirmed(user, sock, env);
