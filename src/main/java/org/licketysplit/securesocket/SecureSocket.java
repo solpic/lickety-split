@@ -2,6 +2,7 @@ package org.licketysplit.securesocket;
 
 import org.licketysplit.env.EnvLogger;
 import org.licketysplit.env.Environment;
+import org.licketysplit.filesharer.messages.ChunkDownloadResponse;
 import org.licketysplit.securesocket.messages.DefaultHandler;
 import org.licketysplit.securesocket.messages.Message;
 import org.licketysplit.securesocket.messages.MessageHandler;
@@ -14,6 +15,7 @@ import java.lang.reflect.Constructor;
 import java.util.Arrays;
 import java.net.*;
 import java.io.*;
+import java.util.Base64;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -184,6 +186,12 @@ public class SecureSocket {
                     out.writeInt(classCode);
                     out.writeInt(payload.length);
                     out.write(payload);
+
+//                    if(nextMessage.msg instanceof ChunkDownloadResponse) {
+//                        log.log(Level.INFO, String.format("CHUNK: ID: %d, rID: %d, payload: %s",
+//                                id, nextMessage.respondingToMessage,
+//                                Base64.getEncoder().encodeToString(((ChunkDownloadResponse)nextMessage.msg).data)));
+//                    }
                 } catch (Exception e) {
                     log.log(Level.SEVERE, "Exception during socket writer");
                     e.printStackTrace();

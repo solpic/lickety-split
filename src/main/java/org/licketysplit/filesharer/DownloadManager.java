@@ -188,7 +188,7 @@ public class DownloadManager implements Runnable {
             ChunkDownloadResponse decodedMessage = m.getMessage();
 
             if(this.dManager.isFinished()) return;
-            this.dManager.getFileAssembler().saveChunk(decodedMessage.data, this.chunk);
+            this.dManager.getFileAssembler().saveChunk(m, decodedMessage.data, this.chunk);
             this.dManager.onChunkCompleted(this.chunk, this.userInfo);
         }
     }

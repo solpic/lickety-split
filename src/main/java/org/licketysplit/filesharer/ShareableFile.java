@@ -9,7 +9,10 @@ public class ShareableFile extends File{
         this.chunkSize = chunkSize;
     }
 
-    public synchronized byte[] getChunk(int chunk) throws IOException {
+    public void closeFile(){
+    }
+
+    public byte[] getChunk(int chunk) throws IOException {
         int offset = 0;
         if(chunk > 0) offset = this.getOffset(chunk); //RENAME, offset is misnomer
         int spaceNeeded = this.getSpaceNeeded(chunk, offset);

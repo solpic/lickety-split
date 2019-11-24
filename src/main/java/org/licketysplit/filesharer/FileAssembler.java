@@ -1,11 +1,11 @@
 package org.licketysplit.filesharer;
 import org.licketysplit.env.Environment;
+import org.licketysplit.filesharer.messages.ChunkDownloadResponse;
+import org.licketysplit.securesocket.messages.ReceivedMessage;
 import org.licketysplit.syncmanager.FileInfo;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
+import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -40,6 +40,23 @@ public class FileAssembler implements Runnable{
         return fileInfo;
     }
 
+    public static boolean equals(byte[] a, byte[] a2) {
+        if (a == a2)
+            return true;
+        if (a == null || a2 == null)
+            return false;
+
+        int length = a.length;
+        if (a2.length != length)
+            return false;
+
+        for (int i = 0; i < length; i++)
+            if (a[i] != a2[i])
+                return false;
+
+        return true;
+    }
+
     @Override
     public void run() {
         try {
@@ -50,6 +67,16 @@ public class FileAssembler implements Runnable{
                 if (chunk != null) {
                     if(chunk.chunk == -1) return; //Download canceled
                     if(!this.completed.contains(chunk.chunk)) {
+                        System.out.println("CHECKING");
+                        ShareableFile sf = new ShareableFile(System.getProperty("user.home") + "/2.png",1024);
+                        byte[] check = sf.getChunk(chunk.chunk);
+                        String checkStr = Base64.getEncoder().encodeToString(check);
+                        String chunkStr = Base64.getEncoder().encodeToString(chunk.bytes);
+                        ReceivedMessage m = chunk.m;
+                        if(!chunkStr.equals(checkStr)){
+                            System.out.println("CANCELING");
+                            this.cancel();
+                        }
                         this.file.seek(chunk.chunk * 1024);
                         this.file.write(chunk.bytes);
                         this.completed.add(chunk.chunk);
@@ -79,11 +106,12 @@ public class FileAssembler implements Runnable{
         }
     }
 
-    public void saveChunk(byte[] data, int chunk){
-        this.chunks.add(new Chunk(data, chunk));
+    public void saveChunk(ReceivedMessage m, byte[] data, int chunk){
+        this.chunks.add(new Chunk(m, data, chunk));
     }
 
     public void cancel(){
-        this.chunks.add(new Chunk(new byte[0], -1)); //Add "poison pill" to blocking queue
+        this.chunks.add(new Chunk(null, new byte[0], -1)); //Add "poison pill" to blocking queue
     }
+
 }
