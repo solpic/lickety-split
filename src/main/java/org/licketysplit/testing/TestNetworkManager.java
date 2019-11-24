@@ -24,11 +24,11 @@ public class TestNetworkManager {
         rand = new Random(System.currentTimeMillis());
         testPortMin = 10000;
         usedPorts = new ArrayList<>();
-        File logDir = logPath.toFile();
-        if(!logDir.exists()) {
-            Files.createDirectory(logPath);
-        }
-        if(clearLogs) this.clearLogs();
+//        File logDir = logPath.toFile();
+//        if(!logDir.exists()) {
+//            Files.createDirectory(logPath);
+//        }
+//        if(clearLogs) this.clearLogs();
     }
     public TestNetworkManager() throws Exception {
         this("testuser", true);

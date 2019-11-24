@@ -56,7 +56,7 @@ public class TestRunner {
         FileManager fm = new FileManager();
         FileSharer fs = new FileSharer();
 
-        String directory = "sharedFiles";
+        String directory = "sharedFilesffff";
         File sharedDir = new File(Paths.get(localPath, directory).toString());
         if(sharedDir.exists()) {
             FileUtils.cleanDirectory(sharedDir);
@@ -68,7 +68,7 @@ public class TestRunner {
 
         env.setFM(fm);
         env.setFS(fs);
-        env.setDirectory(directory);
+        env.setDirectory(sharedDir.getAbsolutePath());
         env.setConfigs(configs);
         fs.setEnv(env);
         fm.setEnv(env);
@@ -152,7 +152,7 @@ public class TestRunner {
         }
 
         Environment env = getEnv(ip, port, username, isRoot, localPath);
-        env.getLogger().log(Level.INFO, String.format("Starting peer at IP: %s", ip));
+        env.getLogger().log(Level.INFO, String.format("Starting peer at IP: %s, ARGS: %s", ip, Arrays.stream(args).collect(Collectors.joining(", "))));
         env.getPm().start();
 
         try {

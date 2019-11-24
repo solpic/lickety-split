@@ -13,6 +13,7 @@ import com.jcraft.jsch.*;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.licketysplit.Main;
+import org.licketysplit.env.Debugger;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -209,7 +210,7 @@ public class TestHarness {
         }
     }
 
-    void runSSH(String host, String cmd) throws Exception {
+    void runSSH(String host, String cmd, boolean withTriggers) throws Exception {
 //        System.out.println(String.format("Running cmd: %s, on host %s", cmd, host));
 //        JSch jSch = new JSch();
 //        jSch.addIdentity("licketysplit-p2p.pem");
@@ -229,7 +230,9 @@ public class TestHarness {
         String line;
         while ((line = br.readLine()) != null) {
             System.out.println(line);
-            checkAssertion(line);
+            if(withTriggers) {
+                Debugger.global().parseTrigger(line);
+            }
         }
         channel.disconnect();
 //        session.disconnect();
@@ -326,11 +329,21 @@ public class TestHarness {
         }
     }
 
-    String jarPath = "C:\\Users\\meps5\\IdeaProjects\\licketysplit\\target\\lickety-split-1.0-SNAPSHOT-jar-with-dependencies.jar";
+    String jarPath = "C:\\Users\\Merrill\\Documents\\LicketySplit\\lickety-split\\target\\lickety-split-1.0-SNAPSHOT-jar-with-dependencies.jar";
     String jarDest = "p2p.jar";
     P2PTestInfo createAndUploadFiles(long remoteCount, long localCount, boolean shouldRedeploy, boolean localThreaded) throws Exception {
-        String testDataPath = "test-data";
-        FileUtils.cleanDirectory(new File(testDataPath));
+        String _testDataPath = "test-data";
+        String _testingFolder = "test-data-root";
+        File testingFolderDir = new File(_testingFolder);
+        if(!testingFolderDir.exists()) {
+            testingFolderDir.mkdir();
+        }
+        FileUtils.cleanDirectory(testingFolderDir);
+        File testDataDir = Paths.get(testingFolderDir.getPath(), _testDataPath).toFile();
+        if(!testDataDir.exists()) {
+            testDataDir.mkdir();
+        }
+        FileUtils.cleanDirectory(testDataDir);
         int listenPort = 15000;
         List<TestNetworkManager.PeerGenInfo> peers = new ArrayList<>();
         int peerNumber = 0;
@@ -376,7 +389,7 @@ public class TestHarness {
         String jarurl = getPresignedURL("licketysplit-jar", "jar", 5);
         String wgetCmd = String.format("wget -O %s \"%s\"", jarDest, jarurl);
         TestNetworkManager testNetworkManager = new TestNetworkManager();
-        TestNetworkManager.TestNetworkDataInfo data = testNetworkManager.generateNetworkWithPeers(testDataPath, peers);
+        TestNetworkManager.TestNetworkDataInfo data = testNetworkManager.generateNetworkWithPeers(testDataDir.getPath(), peers);
 
         for (TestNetworkManager.PeerGenInfo peer : peers) {
             List<String> sources = new ArrayList<>();
@@ -409,7 +422,7 @@ public class TestHarness {
 
             String localPath = null;
             if(peer.isLocal) {
-                String localDir = Paths.get(testDataPath, peer.username).toString();
+                String localDir = Paths.get(testDataDir.getPath(), peer.username).toString();
                 File localDirFile = new File(localDir);
                 localDirFile.mkdir();
                 localPath = localDirFile.getPath();
@@ -459,7 +472,7 @@ public class TestHarness {
             new Thread(() -> {
                 try {
                     if(!peer.isLocal) {
-                        runSSH(peer.ip, "sh " + TestRunner.cmdFilename);
+                        runSSH(peer.ip, "sh " + TestRunner.cmdFilename, true);
                     }else{
                         runLocal(peer);
                     }
@@ -472,9 +485,12 @@ public class TestHarness {
             }).start();
         }
 
-        String logFolder = "remote-logs";
-
-        FileUtils.cleanDirectory(new File(logFolder));
+        String _logFolder = "remote-logs";
+        File remoteLogsFolder = Paths.get(testingFolderDir.getPath(), _logFolder).toFile();
+        if(!remoteLogsFolder.exists()) {
+            remoteLogsFolder.mkdir();
+        }
+        FileUtils.cleanDirectory(remoteLogsFolder);
         do {
             Thread.sleep(1000);
             if(runningCount.get()==0) {
@@ -485,16 +501,16 @@ public class TestHarness {
                         .map(e -> e.getKey())
                         .collect(Collectors.joining(", "));
                 System.out.println(String.format("%d peers still running: %s", runningCount.get(), peerlist));
-                downloadLogsRetry(peers, logFolder, 3);
+                downloadLogsRetry(peers, remoteLogsFolder.getPath(), 3);
             }
         } while(true);
 
-        HashMap<String, String> logFiles = downloadLogsRetry(peers, logFolder, 3);
+        HashMap<String, String> logFiles = downloadLogsRetry(peers, remoteLogsFolder.getPath(), 3);
 
 
         P2PTestInfo results = new P2PTestInfo();
         results.data = data;
-        results.logFolder = logFolder;
+        results.logFolder = remoteLogsFolder.getPath();
         results.logFiles = logFiles;
         return results;
     }
@@ -575,9 +591,9 @@ public class TestHarness {
     }
 
     public void cleanAndPackage() {
-        String packageString = "\"C:\\Program Files\\JetBrains\\IntelliJ IDEA Community Edition 2019.2.2\\jbr\\bin\\java.exe\" -Dmaven.multiModuleProjectDirectory=C:\\Users\\meps5\\IdeaProjects\\licketysplit \"-Dmaven.home=C:\\Program Files\\JetBrains\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven3\" \"-Dclassworlds.conf=C:\\Program Files\\JetBrains\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven3\\bin\\m2.conf\" \"-Dmaven.ext.class.path=C:\\Program Files\\JetBrains\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven-event-listener.jar\" \"-javaagent:C:\\Program Files\\JetBrains\\IntelliJ IDEA Community Edition 2019.2.2\\lib\\idea_rt.jar=63996:C:\\Program Files\\JetBrains\\IntelliJ IDEA Community Edition 2019.2.2\\bin\" -Dfile.encoding=UTF-8 -classpath \"C:\\Program Files\\JetBrains\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven3\\boot\\plexus-classworlds-2.6.0.jar\" org.codehaus.classworlds.Launcher -Didea.version2019.2.2 package";
-        String cleanString = "\"C:\\Program Files\\JetBrains\\IntelliJ IDEA Community Edition 2019.2.2\\jbr\\bin\\java.exe\" -Dmaven.multiModuleProjectDirectory=C:\\Users\\meps5\\IdeaProjects\\licketysplit \"-Dmaven.home=C:\\Program Files\\JetBrains\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven3\" \"-Dclassworlds.conf=C:\\Program Files\\JetBrains\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven3\\bin\\m2.conf\" \"-Dmaven.ext.class.path=C:\\Program Files\\JetBrains\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven-event-listener.jar\" \"-javaagent:C:\\Program Files\\JetBrains\\IntelliJ IDEA Community Edition 2019.2.2\\lib\\idea_rt.jar=64003:C:\\Program Files\\JetBrains\\IntelliJ IDEA Community Edition 2019.2.2\\bin\" -Dfile.encoding=UTF-8 -classpath \"C:\\Program Files\\JetBrains\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven3\\boot\\plexus-classworlds-2.6.0.jar\" org.codehaus.classworlds.Launcher -Didea.version2019.2.2 clean";
-        runCommand(cleanString);
+        String packageString = "\"C:\\Program Files\\Java\\jdk-12\\bin\\java.exe\" -Dmaven.multiModuleProjectDirectory=C:\\Users\\Merrill\\Documents\\LicketySplit\\lickety-split \"-Dmaven.home=D:\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven3\" \"-Dclassworlds.conf=D:\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven3\\bin\\m2.conf\" \"-Dmaven.ext.class.path=D:\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven-event-listener.jar\" \"-javaagent:D:\\IntelliJ IDEA Community Edition 2019.2.2\\lib\\idea_rt.jar=60663:D:\\IntelliJ IDEA Community Edition 2019.2.2\\bin\" -Dfile.encoding=UTF-8 -classpath \"D:\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven3\\boot\\plexus-classworlds-2.6.0.jar\" org.codehaus.classworlds.Launcher -Didea.version2019.2.2 package -P local-threads";
+        String cleanString = "\"C:\\Program Files\\Java\\jdk-12\\bin\\java.exe\" -Dmaven.multiModuleProjectDirectory=C:\\Users\\Merrill\\Documents\\LicketySplit\\lickety-split \"-Dmaven.home=D:\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven3\" \"-Dclassworlds.conf=D:\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven3\\bin\\m2.conf\" \"-Dmaven.ext.class.path=D:\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven-event-listener.jar\" \"-javaagent:D:\\IntelliJ IDEA Community Edition 2019.2.2\\lib\\idea_rt.jar=60668:D:\\IntelliJ IDEA Community Edition 2019.2.2\\bin\" -Dfile.encoding=UTF-8 -classpath \"D:\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven3\\boot\\plexus-classworlds-2.6.0.jar\" org.codehaus.classworlds.Launcher -Didea.version2019.2.2 clean -P local-threads";
+        //runCommand(cleanString);
         runCommand(packageString);
 
     }
@@ -589,14 +605,16 @@ public class TestHarness {
 
         instances = getInstances();
         for (Instance instance : instances) {
-            runSSH(instance.getPublicIpAddress(), "sudo yum -y install java-1.8.0-openjdk");
+            runSSH(instance.getPublicIpAddress(), "sudo yum -y install java-1.8.0-openjdk", false);
         }
     }
 
     public P2PTestInfo generateNetwork(long remoteCount, long localCount, boolean shouldRedeploy, boolean localThreaded) throws Exception {
         if(shouldRedeploy) {
             cleanAndPackage();
-            uploadToBucket(jarPath, "jar", "licketysplit-jar");
+            if(remoteCount>0) {
+                uploadToBucket(jarPath, "jar", "licketysplit-jar");
+            }
         }
         if(remoteCount>0) {
             ec2 = AmazonEC2ClientBuilder.defaultClient();

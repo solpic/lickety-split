@@ -29,4 +29,19 @@ public class Debugger {
             }
         }
     }
+
+    public void parseTrigger(String line) {
+        return;
+    }
+
+    private static Debugger global = null;
+    private static Object globalLock = new Object();
+    public static Debugger global() {
+        synchronized (globalLock) {
+            if(global==null) {
+                global = new Debugger(false);
+            }
+            return global;
+        }
+    }
 }

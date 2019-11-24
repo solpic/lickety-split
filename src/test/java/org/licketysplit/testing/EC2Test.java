@@ -25,7 +25,7 @@ public class EC2Test {
                 localThreaded
         ));
 
-        TestHarness.P2PTestInfo results = testHarness.generateNetwork(0, 20, shouldRedeploy, localThreaded);
+        TestHarness.P2PTestInfo results = testHarness.generateNetwork(0, 5, shouldRedeploy, localThreaded);
         return;
     }
 

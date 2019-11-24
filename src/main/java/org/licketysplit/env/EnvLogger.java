@@ -83,9 +83,15 @@ public class EnvLogger {
         log(Level.INFO, msg);
     }
 
+    public void trigger() {
+
+    }
+
     public void log(Level lvl, String msg) {
         if(enabled) {
-            logger.log(lvl, username + ": " + msg);
+            String logLine = username + ": " + msg;
+            logger.log(lvl, logLine);
+            Debugger.global().parseTrigger(logLine);
         }
     }
 
