@@ -12,6 +12,7 @@ import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
 import com.jcraft.jsch.*;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
+import org.licketysplit.Main;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -253,8 +254,12 @@ public class TestHarness {
     }
 
     private void runLocal(TestNetworkManager.PeerGenInfo peer) throws Exception {
-        String cmdPath = Paths.get(peer.workingDir, TestRunner.cmdFilename+".bat").toAbsolutePath().toString();
-        runLocal(cmdPath);
+        if(peer.localThreaded) {
+            Main.main(peer.args);
+        }else {
+            String cmdPath = Paths.get(peer.workingDir, TestRunner.cmdFilename + ".bat").toAbsolutePath().toString();
+            runLocal(cmdPath);
+        }
     }
 
 
@@ -323,40 +328,46 @@ public class TestHarness {
 
     String jarPath = "C:\\Users\\meps5\\IdeaProjects\\licketysplit\\target\\lickety-split-1.0-SNAPSHOT-jar-with-dependencies.jar";
     String jarDest = "p2p.jar";
-    P2PTestInfo createAndUploadFiles(long remoteCount, long localCount, boolean shouldRedeploy) throws Exception {
+    P2PTestInfo createAndUploadFiles(long remoteCount, long localCount, boolean shouldRedeploy, boolean localThreaded) throws Exception {
         String testDataPath = "test-data";
         FileUtils.cleanDirectory(new File(testDataPath));
         int listenPort = 15000;
-        List<Instance> instances = getInstances().stream()
-                .filter(i->i.getState().getName().equals("running"))
-                .collect(Collectors.toList());
         List<TestNetworkManager.PeerGenInfo> peers = new ArrayList<>();
         int peerNumber = 0;
         String rootUser;
-        for (Instance instance : instances) {
-            if(peerNumber>=remoteCount) break;
-            String username = String.format("testuser-%d-remote", peerNumber);
-            peers.add(new TestNetworkManager.PeerGenInfo(
-                    username,
-                    instance.getPublicIpAddress(),
-                    listenPort,
-                    instance.getInstanceId(),
-                    peerNumber==0,
-                    false
-            ));
-            if(peerNumber==0) rootUser = username;
-            peerNumber++;
+        if(remoteCount>0) {
+            List<Instance> instances = getInstances().stream()
+                    .filter(i -> i.getState().getName().equals("running"))
+                    .collect(Collectors.toList());
+            for (Instance instance : instances) {
+                if (peerNumber >= remoteCount) break;
+                String username = String.format("testuser-%d-remote", peerNumber);
+                peers.add(new TestNetworkManager.PeerGenInfo(
+                        username,
+                        instance.getPublicIpAddress(),
+                        listenPort,
+                        instance.getInstanceId(),
+                        peerNumber == 0,
+                        false,
+                        localThreaded
+                ));
+                if (peerNumber == 0) rootUser = username;
+                peerNumber++;
+            }
         }
+        int localPort = 15000;
         for (long i = 0; i < localCount; i++) {
             String username = String.format("testuser-%d-local", peerNumber);
             peers.add(new TestNetworkManager.PeerGenInfo(
                     username,
                     "localhost",
-                    -1,
+                    localPort,
                     "local-"+username,
                     peerNumber==0,
-                    true
+                    true,
+                    localThreaded
             ));
+            localPort++;
             if(peerNumber==0) rootUser = username;
             peerNumber++;
         }
@@ -408,6 +419,8 @@ public class TestHarness {
                         "\"C:\\Program Files\\Java\\jdk1.8.0_231\\bin\\java.exe\""
                         ,jarDest, peer.username, peer.ip, Integer.toString(peer.port), rootStr
                 );
+
+                peer.args = new String[] {"peerstart", peer.username, peer.ip, Integer.toString(peer.port), rootStr, localPath};
 
                 peer.workingDir = localPath;
                 peer.cmd = cmd;
@@ -580,14 +593,16 @@ public class TestHarness {
         }
     }
 
-    public P2PTestInfo generateNetwork(long remoteCount, long localCount, boolean shouldRedeploy) throws Exception {
+    public P2PTestInfo generateNetwork(long remoteCount, long localCount, boolean shouldRedeploy, boolean localThreaded) throws Exception {
         if(shouldRedeploy) {
             cleanAndPackage();
             uploadToBucket(jarPath, "jar", "licketysplit-jar");
         }
-        ec2 = AmazonEC2ClientBuilder.defaultClient();
-        List<Instance> instances = getInstances();
-        startInstanceCount(instances, remoteCount);
-        return createAndUploadFiles(remoteCount, localCount, shouldRedeploy);
+        if(remoteCount>0) {
+            ec2 = AmazonEC2ClientBuilder.defaultClient();
+            List<Instance> instances = getInstances();
+            startInstanceCount(instances, remoteCount);
+        }
+        return createAndUploadFiles(remoteCount, localCount, shouldRedeploy, localThreaded);
     }
 }

@@ -11,6 +11,7 @@
         <junit-jupiter.version>5.5.2</junit-jupiter.version>
         <maven.test.skip>true</maven.test.skip>
         <should.redeploy>no</should.redeploy>
+        <use.localthreaded>no</use.localthreaded>
     </properties>
 
     <profiles>
@@ -18,6 +19,12 @@
             <id>redeploy</id>
             <properties>
                 <should.redeploy>yes</should.redeploy>
+            </properties>
+        </profile>
+        <profile>
+            <id>local-threads</id>
+            <properties>
+                <use.localthreaded>yes</use.localthreaded>
             </properties>
         </profile>
     </profiles>
@@ -125,6 +132,7 @@
                 <configuration>
                     <systemPropertyVariables>
                         <shouldRedeploy>${should.redeploy}</shouldRedeploy>
+                        <useLocalThreaded>${use.localthreaded}</useLocalThreaded>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>

@@ -31,12 +31,12 @@ public class Environment {
     String configs;
 
     public String getDirectory(String fileName) {
-        Path path = Paths.get(System.getProperty("user.home"), this.directory, fileName);
+        Path path = Paths.get(this.directory, fileName);
         return path.toString();
     }
 
     public String getTempDirectory(String directoryName, String fileName){
-        Path path = Paths.get(System.getProperty("user.home"), this.directory, directoryName, fileName);
+        Path path = Paths.get(this.directory, directoryName, fileName);
         return path.toString();
     }
 
@@ -49,12 +49,12 @@ public class Environment {
     }
 
     public String getConfigs(String fileName){
-        Path path = Paths.get(System.getProperty("user.home"), this.configs, fileName);
+        Path path = Paths.get(this.configs, fileName);
         return path.toString();
     }
 
     public String getConfigs(){
-        return Paths.get(System.getProperty("user.home"), this.configs).toString();
+        return Paths.get(this.configs).toString();
     }
 
     KeyStore rootKey;

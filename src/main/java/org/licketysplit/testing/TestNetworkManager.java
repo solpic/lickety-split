@@ -107,18 +107,22 @@ public class TestNetworkManager {
         public String instanceId;
         public boolean isRoot;
         public boolean isLocal;
+        public boolean localThreaded;
 
         public String workingDir;
         public String cmd;
         public String cmdPath;
+        public String[] args;
 
-        public PeerGenInfo(String username, String ip, Integer port, String instanceId, boolean isRoot, boolean isLocal) {
+        public PeerGenInfo(String username, String ip, Integer port, String instanceId,
+                           boolean isRoot, boolean isLocal, boolean localThreaded) {
             this.username = username;
             this.ip = ip;
             this.port = port;
             this.instanceId = instanceId;
             this.isRoot  = isRoot;
             this.isLocal = isLocal;
+            this.localThreaded = localThreaded;
         }
     }
 

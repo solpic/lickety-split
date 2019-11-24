@@ -52,7 +52,7 @@ public class AddFileTest{
                     server = new PeerManager.ServerInfo(nextPort[0], "localhost");
                     nextPort[0]++;
                 }
-                Environment env = new Environment(new UserInfo(username, server), pm);
+                Environment env = new Environment(new UserInfo(username, server), pm, true);
                 env.getLogger().log(Level.INFO, "Server is: "+env.getUserInfo().getServer().getPort());
                 String directory =  "Test" + this.currFolder;
                 this.currFolder++;
@@ -83,7 +83,7 @@ public class AddFileTest{
         FileSharer fs = new FileSharer();
         //fm.initializeFiles(System.getProperty("user.home") + "/Test1/", "wnewman");
         PeerManager pm = new PeerManager();
-        Environment env = new Environment(user, pm);
+        Environment env = new Environment(user, pm, true);
         String directory = "Test";
         String configs = "configs-default";
         SyncManager sm = new SyncManager();

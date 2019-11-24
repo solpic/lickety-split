@@ -228,24 +228,35 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
 
 
     boolean lockHandshake(String username) throws Exception {
-        return true;
-//        synchronized (handshakes) {
-//            if (handshakes.indexOf(username)>=0) {
-//                env.getLogger().log(Level.INFO, "Already handshaking with "+username+", canceling");
-//                return false;
-//            } else {
-//                log.log(Level.INFO, "Handshaking with "+username);
-//                handshakes.add(username);
-//                return true;
-//            }
-//        }
+        synchronized (handshakes) {
+            if (handshakes.indexOf(username)>=0) {
+            } else {
+                log.log(Level.INFO, "Handshaking with "+username);
+                handshakes.add(username);
+                return true;
+            }
+        }
+        do {
+            Thread.sleep(2000);
+            if(peers.entrySet().stream()
+                    .filter(e -> e.getKey().getUsername().equals(username))
+                    .count()==1) {
+                return false;
+            }
+            synchronized (handshakes) {
+                if(handshakes.indexOf(username)<0) {
+                    handshakes.add(username);
+                    return true;
+                }
+            }
+
+        } while(true);
     }
 
     void unlockHandshake(String username) throws Exception {
-        return;
-//        synchronized (handshakes) {
-//            handshakes.remove(username);
-//        }
+        synchronized (handshakes) {
+            handshakes.remove(username);
+        }
     }
 
     void newConnectionHandlerServer(ReceivedMessage m) throws Exception {

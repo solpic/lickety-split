@@ -49,6 +49,8 @@ public class SymmetricCipher {
         }
     }
 
+    public byte[] keyBytesStored;
+    public byte[] ivBytesStored;
     public void setKey(byte[] keyBytes, byte[] iv) throws Exception {
         SecretKeySpec key = new SecretKeySpec(keyBytes, "AES");
         IvParameterSpec ivspec = new IvParameterSpec(iv);
@@ -57,6 +59,9 @@ public class SymmetricCipher {
         decryptor = Cipher.getInstance("AES/CBC/PKCS5Padding");
         encryptor.init(Cipher.ENCRYPT_MODE, key, ivspec);
         decryptor.init(Cipher.DECRYPT_MODE, key, ivspec);
+
+        keyBytesStored = keyBytes;
+        ivBytesStored = iv;
     }
 
     public SymmetricKey generateKey() throws Exception {

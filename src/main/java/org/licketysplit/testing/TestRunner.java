@@ -27,24 +27,24 @@ public class TestRunner {
     public static String idKeyFilename = "idkey";
     public static String infoFilename = "infodir";
     public static String cmdFilename = "run.sh";
-    public Environment getEnv(String ip, int port, String username, boolean isRoot) throws Exception {
-        PeerInfoDirectory info = new PeerInfoDirectory(infoFilename);
+    public Environment getEnv(String ip, int port, String username, boolean isRoot, String localPath) throws Exception {
+        PeerInfoDirectory info = new PeerInfoDirectory(Paths.get(localPath, infoFilename).toString());
         info.load();
 
         KeyStore rootKeyStore = null;
         if(isRoot) {
-            rootKeyStore = new KeyStore(rootKeyFilename);
+            rootKeyStore = new KeyStore(Paths.get(localPath, rootKeyFilename).toString());
             rootKeyStore.load();
         }
 
-        KeyStore idKeyStore = new KeyStore(idKeyFilename);
+        KeyStore idKeyStore = new KeyStore(Paths.get(localPath, idKeyFilename).toString());
         idKeyStore.load();
 
         PeerManager.ServerInfo serverInfo = new PeerManager.ServerInfo(port, ip);
         org.licketysplit.securesocket.peers.UserInfo user = new UserInfo(username, serverInfo);
         PeerManager pm = new PeerManager();
         Environment env = new Environment(user, pm, true);
-        File log = Paths.get("log").toFile();
+        File log = Paths.get(localPath, "log").toFile();
         env.getLogger().setLogFile(log);
 
         pm.setEnv(env);
@@ -57,13 +57,13 @@ public class TestRunner {
         FileSharer fs = new FileSharer();
 
         String directory = "sharedFiles";
-        File sharedDir = new File(directory);
+        File sharedDir = new File(Paths.get(localPath, directory).toString());
         if(sharedDir.exists()) {
             FileUtils.cleanDirectory(sharedDir);
         }else {
             sharedDir.mkdir();
         }
-        String configs = "configs1";
+        String configs = Paths.get(localPath, "configs1").toString();
         SyncManager sm = new SyncManager();
 
         env.setFM(fm);
@@ -88,7 +88,7 @@ public class TestRunner {
         return Integer.parseInt(username.substring(i+1, i2));
     }
 
-    void runMain(Environment env, int usernumber) throws Exception{
+    void runMain(Environment env, int usernumber, String localPath) throws Exception{
         env.getLogger().log(Level.INFO, String.format("I am user number %d", usernumber));
 
         String contents = "this is a test file";
@@ -96,7 +96,7 @@ public class TestRunner {
             env.log("Running user 0 handler");
             Thread.sleep(5000);
             SyncManager sm = env.getSyncManager();
-            File hello = new File("hello.txt");
+            File hello = Paths.get(localPath, "hello.txt").toFile();
             hello.createNewFile();
             hello.deleteOnExit();
             FileUtils.writeStringToFile(hello, contents, (String)null);
@@ -106,14 +106,17 @@ public class TestRunner {
             Thread.sleep(15000);
 //            env.getFS().download(new FileInfo("hello.txt", false, contents.length()));
 //            Thread.sleep(5000);
-            String downloadedContents = FileUtils.readFileToString(
-                    new File(env.getFM().getSharedDirectoryPath("hello.txt")), "UTF-8");
+            File f = new File(env.getFM().getSharedDirectoryPath("hello.txt"));
+            if(f.exists()) {
+                String downloadedContents = FileUtils.readFileToString(f, "UTF-8");
 
 
-            boolean equals = contents.equals(downloadedContents);
-            String message = equals?"Files match":String.format("Files don't match, contents: %s, downloaded: %s", contents, downloadedContents);
-            env.log(String.format("Assert: %b, Message: %s", equals, message));
-
+                boolean equals = contents.equals(downloadedContents);
+                String message = equals ? "Files match" : String.format("Files don't match, contents: %s, downloaded: %s", contents, downloadedContents);
+                env.log(String.format("Assert: %b, Message: %s", equals, message));
+            }else{
+                env.log("Assert: false, Message: no file");
+            }
         }
 //        if(usernumber==1) {
 //            env.log("Running user 1 handler");
@@ -141,13 +144,19 @@ public class TestRunner {
 
         boolean isRoot = false;
         if(args.length>4)isRoot = "isroot=yes".equals(args[4]);
+        String localPath = ".";
+        boolean isLocalThread = false;
+        if(args.length>5) {
+            localPath = args[5];
+            isLocalThread = true;
+        }
 
-        Environment env = getEnv(ip, port, username, isRoot);
+        Environment env = getEnv(ip, port, username, isRoot, localPath);
         env.getLogger().log(Level.INFO, String.format("Starting peer at IP: %s", ip));
         env.getPm().start();
 
         try {
-            runMain(env, userNumber(username));
+            runMain(env, userNumber(username), localPath);
         } catch (Exception e) {
             env.log("Exception in runner!");
             env.getLogger().log(Level.SEVERE, "RunMain exception", e);
@@ -156,7 +165,7 @@ public class TestRunner {
         env.getLogger().log(Level.INFO, "Waiting 30 seconds");
         //Thread.sleep(50000);
         env.getLogger().log(Level.INFO, "Exiting");
-        System.exit(0);
+        if(!isLocalThread)  System.exit(0);
     }
 
     public void run(String[] args) throws Exception {
