@@ -4,12 +4,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class Retrier {
-    int waitTime;
-    int allowedRetryCount;
+    int[] waitTimes;
     int attemptResetTime;
-    public Retrier(int waitTime, int retryCount, int attemptResetTime) {
-        this.waitTime = waitTime;
-        this.allowedRetryCount = retryCount;
+    public Retrier(int[] waitTimes, int retryCount, int attemptResetTime) {
+        this.waitTimes = waitTimes;
         this.processes = new HashMap<>();
         this.attemptResetTime = attemptResetTime;
     }
@@ -41,8 +39,8 @@ public class Retrier {
             }
         }
         synchronized (retryInfo) {
-            if(retryInfo.attempts<allowedRetryCount) {
-                long waitFor = waitTime+retryInfo.lastKnownAttemptTime-System.currentTimeMillis();
+            if(retryInfo.attempts<waitTimes.length) {
+                long waitFor = waitTimes[retryInfo.attempts]+retryInfo.lastKnownAttemptTime-System.currentTimeMillis();
                 if(waitFor>0) {
                     Thread.sleep(waitFor);
                 }

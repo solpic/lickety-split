@@ -126,7 +126,7 @@ public class TestRunner {
                 }else{
                     byte[] downloaded = FileUtils.readFileToByteArray(file);
                     if(compareByteFiles(downloaded, contents)) {
-                        msg.append(String.format("%s matches original\n", file.getPath()));
+                        msg.append(String.format("%s matches original, size %d\n", file.getPath(), contents.length));
                     }else{
                         good = false;
                         msg.append(String.format("%s does not match original\n\tORIGINAL: %s\n\tDOWNLOADED: %s\n", file.getAbsolutePath(),
