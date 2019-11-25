@@ -28,7 +28,7 @@ public class ChunkAvailabilityRequest extends JSONMessage {
             Environment env = m.getEnv();
             FileManager fm = env.getFM();
             //m.log("3");
-            if( fm.hasFile(requestedFileName) &&!env.getFS().downloadInProgress(tstMsg.fileInfo)) {
+            if( fm.hasFile(requestedFileName)) {
                 try {
                     m.respond(new ChunkAvailabilityResponse(env, fm.getFile(requestedFileName), tstMsg.fileInfo), null);
                 } catch (Exception e) {

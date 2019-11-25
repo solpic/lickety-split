@@ -64,6 +64,7 @@ public class FileSharer {
         }
     }
 
+
     public DownloadManager download(FileInfo fileInfo) throws Exception {
         DownloadManager dManager;
         synchronized (currentDownloads) {

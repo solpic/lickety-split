@@ -81,7 +81,7 @@ public class SecureSocket {
             out.close();
             socket.close();
             shouldClose = true;
-
+            if(userInfo!=null)
             env.getPm().retry(userInfo.getUsername());
         }catch(Exception e) {
             env.getLogger().log(Level.INFO, "Error closing socket", e);

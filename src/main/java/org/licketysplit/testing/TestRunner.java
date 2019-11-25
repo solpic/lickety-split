@@ -178,18 +178,18 @@ public class TestRunner {
         changes.add(FileChange.randomCreate(r, 5000, users));
         changes.add(FileChange.randomCreate(r, 10000, users));
         changes.add(FileChange.randomCreate(r, 10000, users));
-        changes.add(FileChange.randomCreate(r, 10000, users));
-        changes.add(FileChange.randomCreate(r, 10000, users));
-        changes.add(FileChange.randomCreate(r, 10000, users));
-        changes.add(FileChange.randomCreate(r, 10000, users));
-        changes.add(FileChange.randomCreate(r, 10000, users));
-        changes.add(FileChange.randomCreate(r, 10000, users));
-        changes.add(FileChange.randomCreate(r, 10000, users));
-        changes.add(FileChange.randomCreate(r, 10000, users));
-        changes.add(FileChange.randomCreate(r, 10000, users));
-        changes.add(FileChange.randomCreate(r, 10000, users));
-        changes.add(FileChange.randomCreate(r, 10000, users));
-        changes.add(FileChange.randomCreate(r, 10000, users));
+//        changes.add(FileChange.randomCreate(r, 10000, users));
+//        changes.add(FileChange.randomCreate(r, 10000, users));
+//        changes.add(FileChange.randomCreate(r, 10000, users));
+//        changes.add(FileChange.randomCreate(r, 10000, users));
+//        changes.add(FileChange.randomCreate(r, 20000, users));
+//        changes.add(FileChange.randomCreate(r, 20000, users));
+//        changes.add(FileChange.randomCreate(r, 20000, users));
+//        changes.add(FileChange.randomCreate(r, 20000, users));
+//        changes.add(FileChange.randomCreate(r, 20000, users));
+//        changes.add(FileChange.randomCreate(r, 20000, users));
+//        changes.add(FileChange.randomCreate(r, 20000, users));
+//        changes.add(FileChange.randomCreate(r, 20000, users));
 
         for (FileChange change : changes) {
             if(usernumber==change.userNumber) {

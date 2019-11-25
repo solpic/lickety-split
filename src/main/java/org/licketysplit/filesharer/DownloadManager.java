@@ -70,6 +70,7 @@ public class DownloadManager implements Runnable {
                         this.remove(chunk);
                         this.addToCompleted(chunk);
                         this.sendDownloadRequest(chunk, user, peer);
+                        updateTime += 5000;
                     }
                 }
 

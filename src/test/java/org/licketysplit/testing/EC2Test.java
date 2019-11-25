@@ -22,7 +22,7 @@ public class EC2Test {
         boolean localThreaded = "yes".equals(System.getProperty("useLocalThreaded"));
 
         ConcurrentHashMap<String, String> hasFiles = new ConcurrentHashMap<>();
-        int remoteCount = 20;
+        int remoteCount = 5;
         int localCount = 0;
         AtomicInteger running = new AtomicInteger(remoteCount + localCount);
         Debugger.global().setTrigger("count", (Object ...args) -> {
