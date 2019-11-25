@@ -9,9 +9,7 @@ import org.licketysplit.securesocket.messages.ReceivedMessage;
 import org.licketysplit.securesocket.peers.UserInfo;
 import org.licketysplit.syncmanager.FileInfo;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
@@ -52,9 +50,32 @@ public class FileSharer {
             dManager.addPeerAndRequestChunkIfPossible(peerChunkInfo, m.getConn(), this.userInfo);
         }
     }
+
+    private Map<String, DownloadManager> currentDownloads = new HashMap<>();
+
+    public void cancelOrFinish(FileInfo file) {
+        synchronized (currentDownloads) {
+            if(currentDownloads.containsKey(file.name)) {
+                env.log(String.format("Removing download reservation for '%s'", file.name));
+                currentDownloads.remove(file.name);
+            }else{
+                env.log(String.format("Tried to remove reservation for nonexistent '%s'", file.name));
+            }
+        }
+    }
+
     public DownloadManager download(FileInfo fileInfo) throws Exception {
-        UpdateDownloads updateDownloads = () -> this.downloads.remove(fileInfo);
-        DownloadManager dManager = new DownloadManager(fileInfo, this.env, updateDownloads);
+        DownloadManager dManager;
+        synchronized (currentDownloads) {
+            if(currentDownloads.containsKey(fileInfo.name)) {
+                return null;
+            }else{
+                env.log(String.format("Reserving download for '%s'", fileInfo.name));
+                UpdateDownloads updateDownloads = () -> this.downloads.remove(fileInfo);
+                dManager = new DownloadManager(fileInfo, this.env, updateDownloads);
+                currentDownloads.put(fileInfo.name, dManager);
+            }
+        }
         this.downloads.put(fileInfo.getName(), dManager);
         this.env.getLogger().log(Level.INFO, "DOWNLOADS SIZE: " + this.downloads.size());
         Thread dThread = new Thread(dManager);
@@ -69,7 +90,10 @@ public class FileSharer {
     }
 
     public boolean downloadInProgress(FileInfo fileInfo){
-        return this.downloads.containsKey(fileInfo.getName());
+        synchronized(currentDownloads) {
+            if(currentDownloads.containsKey(fileInfo.name) ) return true;
+        }
+        return false;
     }
 
     public ArrayList<Integer> getChunks(FileInfo fileInfo){

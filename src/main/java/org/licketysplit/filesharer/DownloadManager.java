@@ -13,6 +13,7 @@ import org.licketysplit.syncmanager.FileInfo;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 
@@ -28,16 +29,19 @@ public class DownloadManager implements Runnable {
     private Environment env;
     private Thread assemblingThread;
     private int updateAfterTwenty;
-    private boolean isCanceled;
-    private boolean isFinished;
+    private AtomicBoolean isCanceled;
+    private AtomicBoolean isFinished;
     private ReentrantLock lock;
     private UpdateDownloads updateDownloads;
     private ArrayList<Integer> completedChunks;
 
     public DownloadManager(FileInfo fileInfo, Environment env, UpdateDownloads updateDownloads) throws IOException {
         IsFinished isFinished = (boolean finish) -> {
-            this.isFinished = finish;
+            this.isFinished.set(finish);
         };
+        this.isFinished = new AtomicBoolean(false);
+        this.isCanceled = new AtomicBoolean(false);
+        this.isFinished.set(false);
         this.fileAssembler = new FileAssembler(fileInfo, env, this.getLengthInChunks(fileInfo), isFinished);
         this.assemblingThread = new Thread(fileAssembler);
         this.assemblingThread.start();
@@ -45,7 +49,7 @@ public class DownloadManager implements Runnable {
         this.peers = new HashMap<UserInfo, PeerDownloadInfo>();
         this.env = env;
         this.updateAfterTwenty = 0;
-        this.isCanceled = false;
+        this.isCanceled.set(false);
         this.updateDownloads = updateDownloads;
         this.completedChunks = new ArrayList<Integer>();
     }
@@ -57,23 +61,25 @@ public class DownloadManager implements Runnable {
             UserInfo user;
             int chunk;
             env.getLogger().log(Level.INFO, "Starting download manager thread");
-            while(!isFinished || !isCanceled) {
+            long updateTime = System.currentTimeMillis()+5000;
+            while(!isFinished.get() && !isCanceled.get()) {
                 if ((user = this.getFreeUser()) != null) {
                     peer = this.getPeers().get(user);
                     chunk = peer.getRandomDesirableChunk(this.getNecessaryAndAvailableChunks());
-                    if (chunk == -1) continue;
-                    this.remove(chunk);
-                    this.addToCompleted(chunk);
-                    this.sendDownloadRequest(chunk, user, peer);
-//                    if (this.updateAfterTwenty == 20) {
-//                        this.updateAfterTwenty = 0;
-//                        this.updatePeerList();
-//                    } else {
-//                        this.updateAfterTwenty++;
-//                    }
+                    if (chunk >=0) {
+                        this.remove(chunk);
+                        this.addToCompleted(chunk);
+                        this.sendDownloadRequest(chunk, user, peer);
+                    }
+                }
+
+                if (System.currentTimeMillis()>updateTime) {
+                    this.updatePeerList();
+                    updateTime = System.currentTimeMillis()+5000;
                 }
             }
-            this.finish();
+            env.log(String.format("Download manager done, finished: %b, Cancelled: %b", isFinished.get(), isCanceled.get()));
+            if(!isCanceled.get()) this.finish();
         } catch(Exception e){
             e.printStackTrace();
         }
@@ -94,6 +100,11 @@ public class DownloadManager implements Runnable {
         return null;
     }
 
+    private UserInfo getAnyUser() {
+        List<UserInfo> shuffledList = new ArrayList<UserInfo>( this.getPeers().keySet() );
+        return shuffledList.get(new Random(System.currentTimeMillis()).nextInt(shuffledList.size()));
+    }
+
     private int getLengthInChunks(FileInfo fileInfo){
         double chunkLength = 1024.0;
         double preciseChunks = fileInfo.getLength() / chunkLength;
@@ -105,8 +116,11 @@ public class DownloadManager implements Runnable {
     }
 
     public void addPeerAndRequestChunkIfPossible(PeerChunkInfo peerInfo, SecureSocket socket, UserInfo userInfo) throws Exception {
+        if(peerInfo.getChunks().size() == 0) {
+            env.getLogger().log(String.format("Peer %s has NO chunks", userInfo.getUsername()));
+            return;
+        }
         env.getLogger().log(String.format("Peer %s has chunk", userInfo.getUsername()));
-        if(peerInfo.getChunks().size() == 0) return;
         this.peers.put(userInfo, new PeerDownloadInfo(peerInfo, socket)); //TODO(will) check if possible
         this.updateAvailableChunks(peerInfo);
         this.makeUserAvailable(userInfo);
@@ -148,6 +162,7 @@ public class DownloadManager implements Runnable {
     }
 
     public void sendDownloadRequest(int chunk, UserInfo userInfo, PeerDownloadInfo peer) throws Exception {
+        env.log(String.format("Requesting chunk %d from %s", chunk, peer.getSocket().getPeerAddress().getUser().getUsername()));
         peer.getSocket().sendFirstMessage(new ChunkDownloadRequest(this.fileAssembler.getFileInfo(), chunk), new ChunkDownloadRequestHandler(chunk,  this, userInfo)); //need to close request and remove chunk
     }
 
@@ -166,11 +181,11 @@ public class DownloadManager implements Runnable {
 
     public void cancelDownload(){
         this.fileAssembler.cancel();
-        this.isCanceled = true;
+        this.isCanceled.set(true);
     }
 
     private boolean isFinished() {
-        return this.isFinished;
+        return this.isFinished.get();
     }
 
     public static class ChunkDownloadRequestHandler implements MessageHandler {
@@ -186,6 +201,7 @@ public class DownloadManager implements Runnable {
 
         @Override
         public void handle(ReceivedMessage m) throws Exception {
+            m.getEnv().log("Received chunk response");
             //If error add chunk back to availableChunks.
             ChunkDownloadResponse decodedMessage = m.getMessage();
             if(this.dManager.isFinished()) return;
@@ -196,7 +212,9 @@ public class DownloadManager implements Runnable {
 
     public void finish(){
         this.env.getLogger().log(Level.INFO, "FINISHED FILE " + this.fileAssembler.getFileInfo().getName());
+        this.env.getDebug().trigger("download-complete", this.fileAssembler.getFileInfo().getName());
         this.updateDownloads.update();
+        env.getFS().cancelOrFinish(this.fileAssembler.getFileInfo());
     }
 
 }

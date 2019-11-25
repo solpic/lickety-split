@@ -36,8 +36,15 @@ public class UpdateManifestResponse extends Message {
             Environment env = m.getEnv();
             JSONObject otherUserManifest = updateManifestRequest.manifest;
             try {
-                env.getFM().syncManifests(otherUserManifest);
-            } catch (IOException e) {
+                boolean changed = env.getFM().syncManifests(otherUserManifest);
+
+                if(changed) {
+//                    env.log("Changes, propagating manifest");
+                    env.getSyncManager().syncManifests(m.getConn().getPeerAddress().getUser().getUsername());
+                }else{
+//                    env.log("No manifest changes");
+                }
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         }

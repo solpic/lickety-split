@@ -20,15 +20,15 @@ public class ChunkAvailabilityRequest extends JSONMessage {
     public static class ChunkAvailabilityRequestHandler implements MessageHandler {
         @Override
         public void handle(ReceivedMessage m) throws Exception {
-            m.log("RECEIVED");
+//            m.log("RECEIVED");
             ChunkAvailabilityRequest tstMsg = m.getMessage();
-            m.log("1");
+//            m.log("1");
             String requestedFileName = tstMsg.fileInfo.getName();
-            m.log("2");
+//            m.log("2");
             Environment env = m.getEnv();
             FileManager fm = env.getFM();
-            m.log("3");
-            if( fm.hasFile(requestedFileName)) {
+            //m.log("3");
+            if( fm.hasFile(requestedFileName) &&!env.getFS().downloadInProgress(tstMsg.fileInfo)) {
                 try {
                     m.respond(new ChunkAvailabilityResponse(env, fm.getFile(requestedFileName), tstMsg.fileInfo), null);
                 } catch (Exception e) {

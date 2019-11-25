@@ -13,7 +13,6 @@ public class ChunkAvailabilityResponse extends JSONMessage {
     public PeerChunkInfo peerChunkInfo;
 
     public ChunkAvailabilityResponse(Environment env, File file, FileInfo fileInfo) {
-        env.getLogger().log(Level.INFO, "HAS CHUNKS OF LENGTH: " + env.getFS().getChunksLength(fileInfo));
         this.peerChunkInfo = env.getFS().downloadInProgress(fileInfo) ? new PeerChunkInfo(env.getFS().getChunks(fileInfo), fileInfo) : new PeerChunkInfo(file, fileInfo);
     }
 

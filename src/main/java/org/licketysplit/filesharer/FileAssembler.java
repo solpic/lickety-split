@@ -20,7 +20,7 @@ public class FileAssembler implements Runnable{
     private HashSet<Integer> completed;
     private IsFinished isFinished;
 
-
+    private File downloadToPath;
     public FileAssembler(FileInfo fileInfo, Environment env, int lengthInChunks, IsFinished isFinished) throws IOException {
         this.env = env;
         this.fileInfo = fileInfo;
@@ -29,6 +29,7 @@ public class FileAssembler implements Runnable{
         File temp = new File(this.env.getFM().getSharedDirectoryPath(fileInfo.name));
         if(temp.exists())temp.delete();
         temp.createNewFile();
+        downloadToPath = temp;
         this.file = new RandomAccessFile(temp, "rw");
         this.file.setLength(fileInfo.getLength()); // Set file length to desired file's length
         this.chunks = new LinkedBlockingQueue<Chunk>();
@@ -46,7 +47,9 @@ public class FileAssembler implements Runnable{
             Chunk chunk;
             //consuming messages until exit message is received
             while (true) {
+                env.log("Taking chunk");
                 chunk = this.chunks.take();
+                env.log("Took chunk");
                 if (chunk != null) {
                     if(chunk.chunk == -1) return; //Download canceled
                     if(!this.completed.contains(chunk.chunk)) {
@@ -70,7 +73,7 @@ public class FileAssembler implements Runnable{
                     }
                     this.isFinished.setFinished(true);
                     this.file.close();
-                    env.log("FINISHED AND PERFECT");
+                    env.log("FINISHED AND PERFECT to "+downloadToPath);
                     return;
                 }
             }

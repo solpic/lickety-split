@@ -11,6 +11,7 @@ import org.licketysplit.env.Environment;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Date;
+import java.util.logging.Level;
 
 public class FileManager {
 
@@ -94,45 +95,75 @@ public class FileManager {
 
     public JSONObject getManifest() throws IOException {
         File manifest = new File(this.getConfigsPath(".manifest.txt"));
-        JsonToFile writer = new JsonToFile(manifest);
-        return writer.getJSONObject();
+        try {
+            if(!manifest.exists()||FileUtils.readFileToString(manifest, "UTF-8").equals("")) {
+                env.log("WRITING NEW MANIFEST");
+                FileUtils.writeStringToFile(manifest, "{\"files\":[]}", "UTF-8");
+            }
+                JsonToFile writer = new JsonToFile(manifest);
+                return writer.getJSONObject();
+        } catch(Exception e) {
+            String manifestStr = FileUtils.readFileToString(manifest, "UTF-8");
+            env.getLogger().log(Level.INFO,
+                    String.format("Exception getting manifest, contents '%s'", manifestStr), e);
+            throw e;
+        }
     }
 
-    public void syncManifests(JSONObject theirManifest) throws IOException {
-        JSONArray theirFiles = theirManifest.getJSONArray("files");
-        JSONArray yourFiles = this.getManifest().getJSONArray("files");
-        int theirLen = theirFiles.length();
-        int yourLen = yourFiles.length();
-        if(theirFiles != null && yourFiles != null){
-            for(int i = 0; i < theirLen; i++){
-                boolean alreadyExists = false;
-                JSONObject theirs = new JSONObject(theirFiles.get(i).toString());
-                for(int j = 0; j < yourLen; j++) {
-                    JSONObject yours = new JSONObject(yourFiles.get(j).toString());
-                    if (yours.getString("name").equals(theirs.getString("name"))) {
-                        FileInfo laterStampFile = new FileInfo(this.compareTimestamp(yours, theirs));
-                        if(laterStampFile.isDeleted()){
-                            this.deleteFileFromFolderIfExists(this.getSharedDirectoryPath(laterStampFile.getName()));
+    Object manifestLock = new Object();
+    public boolean autoDownloadNewFiles = false;
+    public boolean autoDownloadUpdates = false;
+    public boolean syncManifests(JSONObject theirManifest) throws IOException {
+        synchronized (manifestLock) {
+            //env.log("Syncing manifest");
+            JSONArray theirFiles = theirManifest.getJSONArray("files");
+            JSONArray yourFiles = this.getManifest().getJSONArray("files");
+            String theirManifestOriginal = theirManifest.toString();
+            String yourManifestOriginal = this.getManifest().toString();
+            int theirLen = theirFiles.length();
+            int yourLen = yourFiles.length();
+            boolean changed = false;
+            if (theirFiles != null && yourFiles != null) {
+                for (int i = 0; i < theirLen; i++) {
+                    boolean alreadyExists = false;
+                    JSONObject theirs = new JSONObject(theirFiles.get(i).toString());
+                    for (int j = 0; j < yourLen; j++) {
+                        JSONObject yours = new JSONObject(yourFiles.get(j).toString());
+                        if (yours.getString("name").equals(theirs.getString("name"))) {
+                            FileInfo laterStampFile = new FileInfo(this.compareTimestamp(yours, theirs));
+                            if(this.compareTimestamp(yours, theirs)!=yours) {
+                                if(!laterStampFile.isDeleted()) {
+                                    changed = true;
+                                    updateFileHandler(laterStampFile);
+                                }
+                            }
+                            if (laterStampFile.isDeleted()) {
+                                this.deleteFileFromFolderIfExists(this.getSharedDirectoryPath(laterStampFile.getName()));
+                            }
+                            yourFiles = this.replace(laterStampFile, yourFiles);
+                            alreadyExists = true;
+                            break;
                         }
-                        yourFiles = this.replace(laterStampFile, yourFiles);
-                        alreadyExists = true;
-                        break;
+                    }
+                    if (!alreadyExists) {
+                        yourFiles.put(theirs);
+                        changed = true;
+                        addFileHandler(new FileInfo(theirs));
                     }
                 }
-                if(!alreadyExists) {
-                    yourFiles.put(theirs);
-                }
             }
-        }
 
-        File manifest = new File(this.getConfigsPath(".manifest.txt"));
-        JsonToFile writer = new JsonToFile(manifest);
-        theirManifest.put("files", yourFiles);
-        writer.writeJSONObject(theirManifest);
+            File manifest = new File(this.getConfigsPath(".manifest.txt"));
+            JsonToFile writer = new JsonToFile(manifest);
+            theirManifest.put("files", yourFiles);
+            writer.writeJSONObject(theirManifest);
+//            env.log(String.format("Synced manifest\n\tOriginal: %s\n\tTheirs: %s\n\tFinal:%s\n\tChanged?: %b", yourManifestOriginal, theirManifestOriginal, theirManifest.toString(), changed));
+            return changed;
+        }
     }
 
     private JSONObject compareTimestamp(JSONObject fileA, JSONObject fileB){
-        return fileA.getLong("timeStamp") > fileB.getLong("timeStamp") ? fileA : fileB;
+        return fileA.getLong("timeStamp") >= fileB.getLong("timeStamp") ? fileA : fileB;
     }
 
     public String getUsername(){
@@ -165,12 +196,14 @@ public class FileManager {
     }
 
     public void addFileToManifest(FileInfo fileInfo) throws IOException {
-        File manifest = new File(this.getConfigsPath(".manifest.txt"));
-        JsonToFile writer = new JsonToFile(manifest);
-        JSONObject files = writer.getJSONObject();
-        JSONArray filesArray = files.getJSONArray("files");
-        filesArray.put(new JSONObject(fileInfo));
-        writer.writeJSONObject(files);
+        synchronized (manifestLock) {
+            File manifest = new File(this.getConfigsPath(".manifest.txt"));
+            JsonToFile writer = new JsonToFile(manifest);
+            JSONObject files = writer.getJSONObject();
+            JSONArray filesArray = files.getJSONArray("files");
+            filesArray.put(new JSONObject(fileInfo));
+            writer.writeJSONObject(files);
+        }
     }
 
     private void addFileToFolder(File source, File dest) throws IOException {
@@ -202,13 +235,15 @@ public class FileManager {
     }
 
     public void updateFileInManifest(FileInfo info) throws IOException {
-        File manifest = new File(this.getConfigsPath(".manifest.txt"));
-        JsonToFile writer = new JsonToFile(manifest);
-        JSONObject files = writer.getJSONObject();
-        JSONArray filesArray = files.getJSONArray("files");
-        filesArray = this.replace(info, filesArray);
-        files.put("files", filesArray);
-        writer.writeJSONObject(files);
+        synchronized (manifestLock) {
+            File manifest = new File(this.getConfigsPath(".manifest.txt"));
+            JsonToFile writer = new JsonToFile(manifest);
+            JSONObject files = writer.getJSONObject();
+            JSONArray filesArray = files.getJSONArray("files");
+            filesArray = this.replace(info, filesArray);
+            files.put("files", filesArray);
+            writer.writeJSONObject(files);
+        }
     }
 
     public void deleteFileFromFolderIfExists(String fileNameWithPath) throws IOException {
@@ -232,5 +267,50 @@ public class FileManager {
             }
         }
         return newArr;
+    }
+
+    public void updateFileHandler(FileInfo fileInfo) {
+        try {
+            env.log("Update file handler for " + fileInfo.name);
+            if (autoDownloadUpdates) {
+                env.getFS().download(fileInfo);
+            }
+        } catch(Exception e) {
+            env.getLogger().log(Level.INFO, "Error updating file", e);
+        }
+    }
+    public void addFileHandler(FileInfo fileInfo) {
+        try {
+            env.log("Add file handler for " + fileInfo.name);
+            if (autoDownloadNewFiles) {
+                env.getFS().download(fileInfo);
+            }
+        } catch(Exception e) {
+            env.getLogger().log(Level.INFO, "Error adding file", e);
+        }
+    }
+
+    public void fileUpdatedNotification(FileInfo fileInfo) throws Exception{
+        updateFileInManifest(fileInfo);
+        try {
+//                    fS.downloadFrom(conn, fileInfo.getName());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        updateFileHandler(fileInfo);
+    }
+
+    public void addFileNotification(FileInfo fileInfo) throws Exception {
+        addFileToManifest(fileInfo);
+        try {
+          //  fS.download(fileInfo);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        addFileHandler(fileInfo);
+    }
+
+    public void deleteFileNotification(FileInfo fileInfo) throws Exception {
+        deleteFile(fileInfo);
     }
 }

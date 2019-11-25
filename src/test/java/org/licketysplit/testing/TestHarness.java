@@ -24,11 +24,15 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestHarness {
     public TestHarness() {
@@ -126,7 +130,7 @@ public class TestHarness {
         synchronized (sftps) {
             if(!sftps.containsKey(host)) {
                 JSch jsch = new JSch();
-                jsch.addIdentity("licketysplit-p2p.pem");
+                jsch.addIdentity(pemPath);
                 jsch.setConfig("StrictHostKeyChecking", "no");
                 Session session = jsch.getSession("ec2-user", host);
                 session.connect();
@@ -158,7 +162,7 @@ public class TestHarness {
 
     void upload(String host, String[] sources, String[] destinations) throws Exception {
         JSch jSch = new JSch();
-        jSch.addIdentity("licketysplit-p2p.pem");
+        jSch.addIdentity(pemPath);
         jSch.setConfig("StrictHostKeyChecking", "no");
         Session session = jSch.getSession("ec2-user", host);
         session.connect();
@@ -193,6 +197,7 @@ public class TestHarness {
 //        session.disconnect();
     }
 
+    String pemPath = Paths.get("aws-files", "licketysplit-p2p.pem").toAbsolutePath().toString();
     void checkAssertion(String line) throws Exception {
         String assertStr = "Assert: ";
         int i = line.indexOf(assertStr);
@@ -210,6 +215,14 @@ public class TestHarness {
         }
     }
 
+    Object finishLock = new Object();
+    boolean finished = false;
+    public void finish() throws Exception {
+        synchronized (finishLock) {
+            finished = true;
+        }
+    }
+
     void runSSH(String host, String cmd, boolean withTriggers) throws Exception {
 //        System.out.println(String.format("Running cmd: %s, on host %s", cmd, host));
 //        JSch jSch = new JSch();
@@ -217,7 +230,7 @@ public class TestHarness {
 //        jSch.setConfig("StrictHostKeyChecking", "no");
 //        Session session = jSch.getSession("ec2-user", host);
         JSch jsch = new JSch();
-        jsch.addIdentity("licketysplit-p2p.pem");
+        jsch.addIdentity(pemPath);
         jsch.setConfig("StrictHostKeyChecking", "no");
         Session session = jsch.getSession("ec2-user", host);
         session.connect();
@@ -332,6 +345,7 @@ public class TestHarness {
     String jarPath = "C:\\Users\\Merrill\\Documents\\LicketySplit\\lickety-split\\target\\lickety-split-1.0-SNAPSHOT-jar-with-dependencies.jar";
     String jarDest = "p2p.jar";
     P2PTestInfo createAndUploadFiles(long remoteCount, long localCount, boolean shouldRedeploy, boolean localThreaded) throws Exception {
+        jarPath = System.getProperty("jarPath");
         String _testDataPath = "test-data";
         String _testingFolder = "test-data-root";
         File testingFolderDir = new File(_testingFolder);
@@ -466,6 +480,28 @@ public class TestHarness {
         }
         AtomicInteger runningCount = new AtomicInteger(0);
         ConcurrentHashMap<String, Boolean> runningMap = new ConcurrentHashMap<>();
+
+
+        Debugger dbg = Debugger.global();
+        dbg.setEnabled(true);
+        BlockingQueue<Object[]> assertions = new LinkedBlockingQueue<>();
+        dbg.setTrigger("assert", (Object ...args) ->{
+            assertions.add(args);
+        });
+
+        AtomicInteger count = new AtomicInteger(peers.size());
+        dbg.setTrigger("done", (Object ...args) -> {
+            count.decrementAndGet();
+            if(count.get()==0) {
+                try {
+                    finish();
+                } catch(Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
+
         for (TestNetworkManager.PeerGenInfo peer : peers) {
             runningCount.addAndGet(1);
             runningMap.put(peer.username, true);
@@ -491,17 +527,48 @@ public class TestHarness {
             remoteLogsFolder.mkdir();
         }
         FileUtils.cleanDirectory(remoteLogsFolder);
+        new Thread(() -> {
+            try {
+                do {
+                    Thread.sleep(1000);
+                    synchronized (finishLock) {
+                        if(finished) {
+                            System.out.println("Forcing finish");
+                            break;
+                        }
+                    }
+                    if(runningCount.get()==0) {
+                        finish();
+                        break;
+                    }else{
+                        String peerlist = runningMap.entrySet().stream()
+                                .filter(e -> e.getValue())
+                                .map(e -> e.getKey())
+                                .collect(Collectors.joining(", "));
+                        //System.out.println(String.format("%d peers still running: %s", runningCount.get(), peerlist));
+
+                    }
+                } while(true);
+                finish();
+            }catch(Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
+
+
         do {
-            Thread.sleep(1000);
-            if(runningCount.get()==0) {
-                break;
-            }else{
-                String peerlist = runningMap.entrySet().stream()
-                        .filter(e -> e.getValue())
-                        .map(e -> e.getKey())
-                        .collect(Collectors.joining(", "));
-                System.out.println(String.format("%d peers still running: %s", runningCount.get(), peerlist));
-                downloadLogsRetry(peers, remoteLogsFolder.getPath(), 3);
+            Object[] args = assertions.poll(1000, TimeUnit.MILLISECONDS);
+            downloadLogsRetry(peers, remoteLogsFolder.getPath(), 3);
+            if(args!=null) {
+                String username = (String)args[0];
+                boolean val = (boolean)args[1];
+                String msg = (String)args[2];
+                assertTrue(val, username+": "+msg);
+            }
+            synchronized (finishLock) {
+                if(finished) {
+                    break;
+                }
             }
         } while(true);
 
@@ -539,10 +606,10 @@ public class TestHarness {
             );
             String dest = Paths.get(logFolder, file).toString();
 
-            System.out.println(String.format(
-                    "Downloading logs for user %s, host %s, to file %s",
-                    peer.username, peer.ip, file
-            ));
+//            System.out.println(String.format(
+//                    "Downloading logs for user %s, host %s, to file %s",
+//                    peer.username, peer.ip, file
+//            ));
 
             if(peer.isLocal) {
                 FileUtils.copyFile(Paths.get(peer.workingDir, "log").toFile(), new File(dest));
@@ -591,7 +658,7 @@ public class TestHarness {
     }
 
     public void cleanAndPackage() {
-        String packageString = "\"C:\\Program Files\\Java\\jdk-12\\bin\\java.exe\" -Dmaven.multiModuleProjectDirectory=C:\\Users\\Merrill\\Documents\\LicketySplit\\lickety-split \"-Dmaven.home=D:\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven3\" \"-Dclassworlds.conf=D:\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven3\\bin\\m2.conf\" \"-Dmaven.ext.class.path=D:\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven-event-listener.jar\" \"-javaagent:D:\\IntelliJ IDEA Community Edition 2019.2.2\\lib\\idea_rt.jar=60663:D:\\IntelliJ IDEA Community Edition 2019.2.2\\bin\" -Dfile.encoding=UTF-8 -classpath \"D:\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven3\\boot\\plexus-classworlds-2.6.0.jar\" org.codehaus.classworlds.Launcher -Didea.version2019.2.2 package -P local-threads";
+        String packageString = System.getProperty("packageCommandString");
         String cleanString = "\"C:\\Program Files\\Java\\jdk-12\\bin\\java.exe\" -Dmaven.multiModuleProjectDirectory=C:\\Users\\Merrill\\Documents\\LicketySplit\\lickety-split \"-Dmaven.home=D:\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven3\" \"-Dclassworlds.conf=D:\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven3\\bin\\m2.conf\" \"-Dmaven.ext.class.path=D:\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven-event-listener.jar\" \"-javaagent:D:\\IntelliJ IDEA Community Edition 2019.2.2\\lib\\idea_rt.jar=60668:D:\\IntelliJ IDEA Community Edition 2019.2.2\\bin\" -Dfile.encoding=UTF-8 -classpath \"D:\\IntelliJ IDEA Community Edition 2019.2.2\\plugins\\maven\\lib\\maven3\\boot\\plexus-classworlds-2.6.0.jar\" org.codehaus.classworlds.Launcher -Didea.version2019.2.2 clean -P local-threads";
         //runCommand(cleanString);
         runCommand(packageString);
@@ -610,11 +677,17 @@ public class TestHarness {
     }
 
     public P2PTestInfo generateNetwork(long remoteCount, long localCount, boolean shouldRedeploy, boolean localThreaded) throws Exception {
+        jarPath = System.getProperty("jarPath");
+        File jar = new File(jarPath);
         if(shouldRedeploy) {
             cleanAndPackage();
-            if(remoteCount>0) {
-                uploadToBucket(jarPath, "jar", "licketysplit-jar");
-            }
+        }
+        if(!jar.exists()) {
+            throw new Exception(String.format("NO jar found at %s", jar.getPath()));
+        }
+
+        if(remoteCount>0&&shouldRedeploy) {
+            uploadToBucket(jarPath, "jar", "licketysplit-jar");
         }
         if(remoteCount>0) {
             ec2 = AmazonEC2ClientBuilder.defaultClient();

@@ -8,6 +8,7 @@ import org.licketysplit.securesocket.messages.DefaultHandler;
 import org.licketysplit.securesocket.messages.Message;
 import org.licketysplit.securesocket.messages.MessageHandler;
 import org.licketysplit.securesocket.messages.ReceivedMessage;
+import org.licketysplit.securesocket.peers.GetPeerListResponse;
 import org.licketysplit.securesocket.peers.PeerManager;
 import org.licketysplit.securesocket.peers.UserInfo;
 import org.reflections.Reflections;
@@ -23,6 +24,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 
 public class SecureSocket {
@@ -50,7 +52,7 @@ public class SecureSocket {
         this.cipher = cipher;
     }
     public String peerUsername = "unknown";
-
+    int mySocketId;
     //<editor-fold desc="Constructor/deconstructor">
     public SecureSocket(Socket socket, DataOutputStream out, DataInputStream in, Environment env, UserInfo userInfo, PeerManager.ServerInfo server) throws Exception {
         this.socket = socket;
@@ -60,7 +62,7 @@ public class SecureSocket {
         this.log = env.getLogger();
         this.userInfo = userInfo;
         this.serverInfo = server;
-
+        mySocketId = sockId.getAndIncrement();
         initMessagingService();
     }
 
@@ -73,11 +75,17 @@ public class SecureSocket {
     }
 
     boolean shouldClose = false;
-    public void close() throws Exception{
-        in.close();
-        out.close();
-        socket.close();
-        shouldClose = true;
+    public void close(){
+        try {
+            in.close();
+            out.close();
+            socket.close();
+            shouldClose = true;
+
+            env.getPm().retry(userInfo.getUsername());
+        }catch(Exception e) {
+            env.getLogger().log(Level.INFO, "Error closing socket", e);
+        }
     }
     public static interface NewConnectionCallback {
         void onConnect(SecureSocket sock) throws Exception;
@@ -136,9 +144,9 @@ public class SecureSocket {
             env.getLogger().log(Level.INFO, "Connected to IP: " + ip + ", port: " + port);
             return new SecureSocket(clientSocket, output, input, env, peer.getUser(), null);
         } catch(Exception e) {
-            env.getLogger().log(Level.INFO, String.format("%s: Error connecting to IP: %s, port: %d, user: %s",
+            env.getLogger().log(Level.INFO, String.format("%s: Error connecting to IP: %s, port: %d, user: %s, %s",
                     env.getUserInfo().getUsername(), peer.getServerInfo().getIp(), peer.getServerInfo().getPort(),
-                    peer.getUser().getUsername()), e);
+                    peer.getUser().getUsername(), e.getMessage()));
 //            throw new ConnectionError(String.format("%s: Error connecting to IP: %s, port: %d, user: %s",
 //                    env.getUserInfo().getUsername(), peer.getServerInfo().getIp(), peer.getServerInfo().getPort(),
 //                    peer.getUser().getUsername()));
@@ -186,6 +194,10 @@ public class SecureSocket {
             }
         }
     }
+    boolean showDetailedDebug = false;
+    boolean showSocketMessages = false;
+
+    public static AtomicInteger sockId = new AtomicInteger(0);
     class SocketReader implements Runnable {
 
         ConcurrentLinkedQueue<Message> oldMessages;
@@ -200,7 +212,6 @@ public class SecureSocket {
                 Integer headersSize = null;
                 byte[] payload = null;
                 try {
-                    boolean showDetailedDebug = false;
                     if(showDetailedDebug) log.log(Level.INFO, "READER: Awaiting next message");
                     // Read message
 
@@ -215,7 +226,7 @@ public class SecureSocket {
 
                     byte[] headers = new byte[headersSize];
                     if(showDetailedDebug) log.log(Level.INFO, "READER: Reading headers");
-                    in.read(headers, 0, headersSize);
+                    in.readFully(headers, 0, headersSize);
                     byte[] oldHeaders = new byte[headersSize];
                     for (int i = 0; i < headers.length; i++) {
                         oldHeaders[i] = headers[i];
@@ -242,10 +253,10 @@ public class SecureSocket {
                                 userInfo!=null?userInfo.getUsername():"unknown"));
                     }
                     payload = new byte[size];
-                    log.log(Level.INFO, String.format("Reading payload of size: %d", size));
+                    if(showDetailedDebug)log.log(Level.INFO, String.format("Reading payload of size: %d", size));
 
                     if(showDetailedDebug) log.log(Level.INFO, "READER: Reading payload of size "+size.toString());
-                    in.read(payload, 0, size);
+                    in.readFully(payload, 0, size);
                     if(showDetailedDebug) log.log("READER: got payload");
                     byte[] payloadFinal = null;
                     if(useEncryption) {
@@ -261,7 +272,7 @@ public class SecureSocket {
 //                            size, myId, responseId, classCode, messageCodes[classCode].getName()));
                     if(showDetailedDebug) log.log("READER: ok");
                     if(showDetailedDebug) log.log(String.format("Classcode: %d", classCode));
-                    log.log(String.format("READER: Received %s from '%s'", messageCodes[classCode].getName(), peerUsername));
+                    if(showSocketMessages) log.log(String.format("READER: Received %s from '%s'", messageCodes[classCode].getName(), peerUsername));
                     if(showDetailedDebug) log.log("READER: ok ok");
                     //log.log(Level.INFO, new String(payloadFinal));
                     Message msg;// = Message.factory(classCode, payload);
@@ -277,19 +288,31 @@ public class SecureSocket {
                     if(showDetailedDebug) log.log(Level.OFF, "Calling response handler");
                     messageHandler.handle(new ReceivedMessage(msg, SecureSocket.this, responseId, env));
                     if(showDetailedDebug) log.log(Level.OFF, "Done calling response handler");
-                } catch (Exception e) {
-                    int ss = 20>payload.length?payload.length:20;
-                    byte[] rawPayloadBytesHead = new byte[ss];
-                    for (int i = 0; i < ss; i++) {
-                        rawPayloadBytesHead[i] = payload[i];
-                    }
-                    String rawPayloadHead = Base64.getEncoder().encodeToString(rawPayloadBytesHead);
-                    String msgInfo = String.format("Headers size: %d, responseID: %d, myId: %d, classcode: %d, size: %d, payload head: %s, key: %s, iv: %s",
-                            headersSize, responseId, myId, classCode, size, rawPayloadHead,
-                            useEncryption?Base64.getEncoder().encodeToString(cipher.keyBytesStored):"none",
-                            useEncryption?Base64.getEncoder().encodeToString(cipher.ivBytesStored):"none");
-                    log.log(Level.SEVERE,
-                            String.format("Error in reader thread with '%s', %s", peerUsername, msgInfo), e);
+                } catch(EOFException e) {
+                    close();
+                }
+                catch (Exception e) {
+//                    int payloadLength = payload!=null?payload.length:0;
+//                    int ss = 20>payloadLength?payloadLength:20;
+//                    byte[] rawPayloadBytesHead = new byte[ss];
+//                    for (int i = 0; i < ss&&i<payloadLength; i++) {
+//                        rawPayloadBytesHead[i] = payload[i];
+//                    }
+//                    String rawPayloadHead = Base64.getEncoder().encodeToString(rawPayloadBytesHead);
+//                    String msgInfo = "unknown";
+//                    try {
+//                        msgInfo =
+//                                String.format("Headers size: %d, responseID: %d, myId: %d, classcode: %d, classname: %s, size: %d, payload head: %s, key: %s, iv: %s, payload size %d, payload: \n%s",
+//                                        headersSize, responseId, myId, classCode,
+//                                        classCode >= 0 && messageCodes.length > classCode ? messageCodes[classCode] : "none",
+//                                        size, rawPayloadHead,
+//                                        useEncryption ? Base64.getEncoder().encodeToString(cipher.keyBytesStored) : "none",
+//                                        useEncryption ? Base64.getEncoder().encodeToString(cipher.ivBytesStored) : "none",
+//                                        payloadLength,
+//                                        "none");
+//                    } catch(Exception e2) {}
+//                    log.log(Level.SEVERE,
+//                            String.format("Error in reader thread with '%s', %s", peerUsername, msgInfo), e);
                     socketError();
                     if(shouldClose) return;
                 }
@@ -342,7 +365,7 @@ public class SecureSocket {
                         rawPayloadBytesHead[i] = payloadBytes[i];
                     }
                     String rawPayloadHead = Base64.getEncoder().encodeToString(rawPayloadBytesHead);
-                    log.log(String.format("Sending %s to '%s', payload size: %d, headers size: %d, id: %d, responding: %d, classcode: %d, payload head: %s, key: %s, iv: %s",
+                    if(showSocketMessages)log.log(String.format("Sending %s to '%s', payload size: %d, headers size: %d, id: %d, responding: %d, classcode: %d, payload head: %s, key: %s, iv: %s",
                             messageCodes[classCode].getName(), peerUsername, payloadBytes.length, headersBytes.length,
                             id, nextMessage.respondingToMessage, classCode, rawPayloadHead,
                             useEncryption&&cipher.keyBytesStored!=null?Base64.getEncoder().encodeToString(cipher.keyBytesStored):"none",
@@ -350,6 +373,13 @@ public class SecureSocket {
 //                    log.log(Level.OFF, String.format(
 //                            "Sending message with \n\tID: %d, \n\tResponseID: %d, \n\tCode: %d, \n\tClass: %s, \n\tSize: %d, \n\tUsing encryption: %b",
 //                            id, nextMessage.respondingToMessage, classCode, messageCodes[classCode].getName(), payload.length, useEncryption));
+//                    if(nextMessage.msg instanceof GetPeerListResponse) {
+//                            log.log(String.format(
+//                                    "Sending peer list response to %s, id: %d, rid: %d, size: %d, payload:\n %s",
+//                                    peerUsername, id, nextMessage.respondingToMessage, payloadBytes.length,
+//                                    Base64.getEncoder().encodeToString(payloadBytes)
+//                            ));
+//                    }
 
                     out.writeInt(headersBytes.length);
                     out.write(headersBytes);
@@ -359,7 +389,8 @@ public class SecureSocket {
                     if(nextMessage.msg.doesActivateEncryption()) {
                         activateEncryption();
                     }
-                } catch (Exception e) {
+
+                }catch(Exception e) {
                     log.log(Level.SEVERE, String.format("Exception during socket writer with '%s'", peerUsername), e);
                     socketError();
                     if(shouldClose) return;

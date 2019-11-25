@@ -83,15 +83,22 @@ public class EnvLogger {
         log(Level.INFO, msg);
     }
 
-    public void trigger() {
-
+    public void trigger(String key, Object ...args) throws Exception {
+        //[datetime] username: TRIGGER triggername
+        String msg = Debugger.global().serializeTrigger(key, args);
+        Object[] argsArray = new Object[args.length+1];
+        for (int i = 0; i < args.length; i++) {
+            argsArray[i+1] = args[i];
+        }
+        argsArray[0] = username;
+        Debugger.global().triggerWithArray(key, argsArray);
+        log(Level.INFO, msg);
     }
 
     public void log(Level lvl, String msg) {
         if(enabled) {
             String logLine = username + ": " + msg;
             logger.log(lvl, logLine);
-            Debugger.global().parseTrigger(logLine);
         }
     }
 

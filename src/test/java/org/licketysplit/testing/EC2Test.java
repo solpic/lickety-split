@@ -3,30 +3,41 @@ package org.licketysplit.testing;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
+import org.licketysplit.env.Debugger;
 import org.licketysplit.securesocket.encryption.SymmetricCipher;
 import org.licketysplit.testing.TestHarness.P2PTestInfo;
 
 import java.io.File;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 public class EC2Test {
     @Test
     public void itWorks() throws Exception {
         TestHarness testHarness = new TestHarness();
         P2PTestInfo hackMaster = new P2PTestInfo();
-        String shouldRedeployVal = System.getProperty("shouldRedeploy");
-        boolean shouldRedeploy = "yes".equals(shouldRedeployVal);
-        String useLocalThreadedVal = System.getProperty("useLocalThreaded");
-        boolean localThreaded = "yes".equals(useLocalThreadedVal);
-        System.out.println(String.format(
-                "Should redeploy -> '%s', so val is %b, local threaded -> '%s', so val is %b",
-                shouldRedeployVal, shouldRedeploy,
-                useLocalThreadedVal,
-                localThreaded
-        ));
+        boolean shouldRedeploy = "yes".equals( System.getProperty("shouldRedeploy"));
+        boolean localThreaded = "yes".equals(System.getProperty("useLocalThreaded"));
 
-        TestHarness.P2PTestInfo results = testHarness.generateNetwork(0, 5, shouldRedeploy, localThreaded);
-        return;
+        ConcurrentHashMap<String, String> hasFiles = new ConcurrentHashMap<>();
+        int remoteCount = 20;
+        int localCount = 0;
+        AtomicInteger running = new AtomicInteger(remoteCount + localCount);
+        Debugger.global().setTrigger("count", (Object ...args) -> {
+            running.decrementAndGet();
+            System.out.println("RUNNING: "+running.get());
+            if(running.get()==0) {
+                try {
+                    testHarness.finish();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+        TestHarness.P2PTestInfo results = testHarness.generateNetwork(remoteCount, localCount, shouldRedeploy, localThreaded);
+        assertEquals(running.get(), 0);
     }
 
     @Test

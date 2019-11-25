@@ -34,8 +34,15 @@ public class UpdateManifestRequest extends Message {
             JSONObject theirManifest = updateManifestRequest.manifest;
             try {
                 JSONObject yourManifest = env.getFM().getManifest();
-                env.getFM().syncManifests(theirManifest);
-                m.respond(new UpdateManifestResponse(yourManifest), null);
+                boolean changed = env.getFM().syncManifests(theirManifest);
+                m.getConn().sendFirstMessage(new UpdateManifestResponse(yourManifest), null);
+
+                if(changed) {
+//                    env.log("Changes, propagating manifest");
+                    env.getSyncManager().syncManifests(m.getConn().getPeerAddress().getUser().getUsername());
+                }else{
+//                    env.log("No manifest changes");
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             } catch (Exception e) {

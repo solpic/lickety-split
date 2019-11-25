@@ -11,7 +11,7 @@ import java.nio.charset.StandardCharsets;
 public class JsonToFile {
     private File file;
 
-    public JsonToFile(File file){
+    public  JsonToFile(File file){
         this.file = file;
     }
 
@@ -24,6 +24,7 @@ public class JsonToFile {
             FileWriter writer = new FileWriter(file);
             writer.write(obj.toString());
             writer.flush();
+            writer.close();
         } catch( IOException e){
             e.printStackTrace();
         }

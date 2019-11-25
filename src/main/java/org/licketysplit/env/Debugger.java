@@ -1,8 +1,11 @@
 package org.licketysplit.env;
 
-import java.util.HashMap;
-import java.util.Map;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Debugger {
     ConcurrentHashMap<String, Trigger> triggers;
@@ -11,15 +14,11 @@ public class Debugger {
         triggers = new ConcurrentHashMap<>();
         this.enabled = enabled;
     }
-    public interface Trigger {
-        void trigger(Object ...args);
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
     }
-    public void setTrigger(String key, Trigger trigger) {
-        synchronized (triggers) {
-            triggers.put(key, trigger);
-        }
-    }
-    public void trigger(String key, Object ...args) {
+
+    public void triggerWithArray(String key, Object[] args) {
         if(enabled) {
             synchronized (triggers) {
                 if (triggers.containsKey(key)) {
@@ -30,7 +29,43 @@ public class Debugger {
         }
     }
 
-    public void parseTrigger(String line) {
+    public interface Trigger {
+        void trigger(Object ...args);
+    }
+    public void setTrigger(String key, Trigger trigger) {
+        synchronized (triggers) {
+            triggers.put(key, trigger);
+        }
+    }
+    public void trigger(String key, Object ...args) {
+        triggerWithArray(key, args);
+    }
+
+
+    public String serializeTrigger(String key, Object[] args) throws Exception{
+        ObjectMapper objectMapper = new ObjectMapper();
+        List<Object> objects = Arrays.asList(args);
+        String argsB64 = Base64.getEncoder().encodeToString(objectMapper.writeValueAsString(objects).getBytes());
+        return String.format("TRIGGER %s %s", key, argsB64);
+    }
+
+    public void parseTrigger(String line) throws Exception {
+        // [datetime] username: TRIGGER triggername triggerargs...
+        Matcher matcher = Pattern.compile("\\[[^\\]]*\\] ([^:]*): TRIGGER ([^\\s]*) ([^\\s]*)").matcher(line);
+        if(matcher.find()) {
+            String username = matcher.group(1);
+            String triggerName = matcher.group(2);
+            String triggerArgs = matcher.group(3);
+            String argsDecoded = new String(Base64.getDecoder().decode(triggerArgs));
+            ObjectMapper objectMapper = new ObjectMapper();
+            Object[] args = objectMapper.readValue(argsDecoded, Object[].class);
+            Object[] argsArray = new Object[args.length+1];
+            argsArray[0] = username;
+            for (int i = 0; i < args.length; i++) {
+                argsArray[i+1] = args[i];
+            }
+            triggerWithArray(triggerName, argsArray);
+        }
         return;
     }
 

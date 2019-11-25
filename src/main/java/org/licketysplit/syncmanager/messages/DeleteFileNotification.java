@@ -26,10 +26,10 @@ public class DeleteFileNotification extends JSONMessage {
     @DefaultHandler(type = DeleteFileNotification.class)
     public static class DeleteFileNotificationHandler implements MessageHandler {
         @Override
-        public void handle(ReceivedMessage m) throws IOException {
+        public void handle(ReceivedMessage m) throws Exception {
             DeleteFileNotification deleteFileNotification = m.getMessage();
             FileInfo fileInfo = deleteFileNotification.getFileInfo();
-            m.getEnv().getFM().deleteFile(fileInfo);
+            m.getEnv().getFM().deleteFileNotification(fileInfo);
         }
     }
 }

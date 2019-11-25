@@ -50,11 +50,11 @@ public class SyncManager {
         FileInfo info = this.env.getFM().addFile(filePath);
 
         this.env.getLogger().log(Level.INFO, "Adding File: " + info.getName());
-
-        ConcurrentHashMap<UserInfo, SecureSocket> peers = this.env.getPm().getPeers();
-        for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
-            peer.getValue().sendFirstMessage(new AddFileNotification(info), null);
-        }
+        syncManifests();
+//        ConcurrentHashMap<UserInfo, SecureSocket> peers = this.env.getPm().getPeers();
+//        for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
+//            peer.getValue().sendFirstMessage(new AddFileNotification(info), null);
+//        }
     }
 
     public void deleteFile(String fileName) throws Exception {
@@ -62,11 +62,11 @@ public class SyncManager {
         this.env.getFM().deleteFile(deletedFileInfo);
 
         this.env.getLogger().log(Level.INFO, "Deleting File: " + deletedFileInfo.getName());
-
-        ConcurrentHashMap<UserInfo, SecureSocket> peers = this.env.getPm().getPeers();
-        for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
-            peer.getValue().sendFirstMessage(new DeleteFileNotification(deletedFileInfo), null);
-        }
+        syncManifests();
+//        ConcurrentHashMap<UserInfo, SecureSocket> peers = this.env.getPm().getPeers();
+//        for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
+//            peer.getValue().sendFirstMessage(new DeleteFileNotification(deletedFileInfo), null);
+//        }
     }
 
     public void startUp() {
@@ -91,7 +91,22 @@ public class SyncManager {
 
     }
 
+    public void syncManifestWith(SecureSocket sock) throws Exception {
+        //env.log("Syncing manifest with "+sock.getPeerAddress().getUser().getUsername());
+        JSONObject manifest = this.env.getFM().getManifest();
+        sock.sendFirstMessage(new UpdateManifestRequest(manifest), null);
+    }
+
     public HashMap<String, DownloadManager> getDownloads(){
         return this.env.getFS().getDownloads();
+    }
+
+    public void syncManifests(String exclude) throws Exception{
+        JSONObject manifest = this.env.getFM().getManifest();
+
+        ConcurrentHashMap<UserInfo, SecureSocket> peers = this.env.getPm().getPeers();
+        for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
+            if(!peer.getKey().getUsername().equals(exclude))  peer.getValue().sendFirstMessage(new UpdateManifestRequest(manifest), null);
+        }
     }
 }

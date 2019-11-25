@@ -14,6 +14,7 @@ import org.licketysplit.syncmanager.SyncManager;
 import java.io.File;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.logging.Level;
@@ -54,6 +55,8 @@ public class TestRunner {
         info.env(env);
 
         FileManager fm = new FileManager();
+        fm.autoDownloadNewFiles = true;
+        fm.autoDownloadUpdates = true;
         FileSharer fs = new FileSharer();
 
         String directory = "sharedFilesffff";
@@ -88,52 +91,129 @@ public class TestRunner {
         return Integer.parseInt(username.substring(i+1, i2));
     }
 
-    void runMain(Environment env, int usernumber, String localPath) throws Exception{
-        env.getLogger().log(Level.INFO, String.format("I am user number %d", usernumber));
+    boolean compareByteFiles(byte[] expected, byte[] actual) {
+        if(expected.length!=actual.length) return false;
+        for (int i = 0; i < expected.length; i++) {
+            if(expected[i]!=actual[i]) return false;
+        }
+        return true;
+    }
 
-        String contents = "this is a test file";
-        if(usernumber==0) {
-            env.log("Running user 0 handler");
-            Thread.sleep(5000);
-            SyncManager sm = env.getSyncManager();
-            File hello = Paths.get(localPath, "hello.txt").toFile();
-            hello.createNewFile();
-            hello.deleteOnExit();
-            FileUtils.writeStringToFile(hello, contents, (String)null);
-            sm.addFile(hello.getPath());
-            Thread.sleep(20000);
-        }else{
-            Thread.sleep(15000);
-//            env.getFS().download(new FileInfo("hello.txt", false, contents.length()));
-//            Thread.sleep(5000);
-            File f = new File(env.getFM().getSharedDirectoryPath("hello.txt"));
-            if(f.exists()) {
-                String downloadedContents = FileUtils.readFileToString(f, "UTF-8");
-
-
-                boolean equals = contents.equals(downloadedContents);
-                String message = equals ? "Files match" : String.format("Files don't match, contents: %s, downloaded: %s", contents, downloadedContents);
-                env.log(String.format("Assert: %b, Message: %s", equals, message));
-            }else{
-                env.log("Assert: false, Message: no file");
+    void checkFinalState(Environment env) throws Exception {
+        boolean good = true;
+        StringBuilder msg = new StringBuilder();
+        Map<String, byte[]> finalContents = new HashMap<>();
+        for (FileChange change : changes) {
+            if(change.create) {
+                finalContents.put(change.path, change.contents);
             }
         }
-//        if(usernumber==1) {
-//            env.log("Running user 1 handler");
-//            Thread.sleep(10000);
-//            FileSharer fs = env.getFS();
-//            fs.download(new FileInfo("hello.txt", false, (int) contents.length()));
-//            Thread.sleep(10000);
-//
-//            String downloadedContents = FileUtils.readFileToString(
-//                    new File(env.getFM().getSharedDirectoryPath("hello.txt")), "UTF-8");
-//
-//
-//            boolean equals = contents.equals(downloadedContents);
-//            env.log(String.format(
-//                    "FINISHED ->\nContents: %s\nDownloaded contents: %s\nEquals?: %b",
-//                    contents, downloadedContents, equals));
-//        }
+        for (Map.Entry<String, byte[]> fileEntry : finalContents.entrySet()) {
+            String filename = fileEntry.getKey();
+            File file = new File(env.getFM().getSharedDirectoryPath(filename));
+            byte[] contents = fileEntry.getValue();
+            if(contents==null) {
+                if(!file.exists()) {
+                    msg.append(String.format("%s doesn't exist\n", file.getPath()));
+                }else{
+                    good = false;
+                    msg.append(String.format("%s exists BUT SHOULD NOT\n", file.getPath()));
+                }
+            }else{
+                if(!file.exists()) {
+                    good = false;
+                    msg.append(String.format("%s does not exist BUT SHOULD\n", file.getPath()));
+                }else{
+                    byte[] downloaded = FileUtils.readFileToByteArray(file);
+                    if(compareByteFiles(downloaded, contents)) {
+                        msg.append(String.format("%s matches original\n", file.getPath()));
+                    }else{
+                        good = false;
+                        msg.append(String.format("%s does not match original\n\tORIGINAL: %s\n\tDOWNLOADED: %s\n", file.getAbsolutePath(),
+                                Base64.getEncoder().encodeToString(contents), Base64.getEncoder().encodeToString(downloaded)));
+                    }
+                }
+            }
+        }
+        env.getLogger().trigger("assert", good, msg.toString());
+        env.getLogger().trigger("count", "ok");
+        env.log(String.format("FINAL GOOD: %b, MSG:\n%s", good, msg.toString()));
+    }
+
+
+    Random randomFileMaker = new Random(100);
+    byte[] randomBigFile(int length) {
+        byte[] bytes = new byte[length];
+        randomFileMaker.nextBytes(bytes);
+        return bytes;
+    }
+
+    public static class FileChange {
+        public String path;
+        public boolean create = false;
+        public boolean update = false;
+        public boolean delete = false;
+        public byte[] contents;
+        public int userNumber;
+        public int delay;
+
+
+        public static FileChange randomCreate(Random r, int delay, int maxUsers) {
+            FileChange change = new FileChange();
+            change.userNumber = r.nextInt(maxUsers);
+            change.create = true;
+            change.path = String.format("random-file-%d", r.nextInt(100000));
+            change.contents = new byte[r.nextInt(1000)+500];
+            r.nextBytes(change.contents);
+            change.delay = delay;
+            return change;
+        }
+    }
+
+    List<FileChange> changes = new ArrayList<>();
+    void runMain(Environment env, int usernumber, String localPath) throws Exception{
+        env.getLogger().log(Level.INFO, String.format("I am user number %d", usernumber));
+        Random r = new Random(100);
+        int users = env.getInfo().getPeers().size();
+        changes.add(FileChange.randomCreate(r, 5000, users));
+        changes.add(FileChange.randomCreate(r, 10000, users));
+        changes.add(FileChange.randomCreate(r, 10000, users));
+        changes.add(FileChange.randomCreate(r, 10000, users));
+        changes.add(FileChange.randomCreate(r, 10000, users));
+        changes.add(FileChange.randomCreate(r, 10000, users));
+        changes.add(FileChange.randomCreate(r, 10000, users));
+        changes.add(FileChange.randomCreate(r, 10000, users));
+        changes.add(FileChange.randomCreate(r, 10000, users));
+        changes.add(FileChange.randomCreate(r, 10000, users));
+        changes.add(FileChange.randomCreate(r, 10000, users));
+        changes.add(FileChange.randomCreate(r, 10000, users));
+        changes.add(FileChange.randomCreate(r, 10000, users));
+        changes.add(FileChange.randomCreate(r, 10000, users));
+        changes.add(FileChange.randomCreate(r, 10000, users));
+
+        for (FileChange change : changes) {
+            if(usernumber==change.userNumber) {
+                new Thread(() -> {
+                    try {
+                        Thread.sleep(change.delay);
+                        if(change.create) {
+                            SyncManager sm = env.getSyncManager();
+                            File path = Paths.get(localPath, change.path).toFile();
+                            path.createNewFile();
+                            path.deleteOnExit();
+                            FileUtils.writeByteArrayToFile(path, change.contents);
+                            sm.addFile(path.getPath());
+                        }
+                    } catch(Exception e) {
+                        env.getLogger().log(Level.INFO, "Error doing change", e);
+                    }
+                }).start();
+            }
+        }
+        Thread.sleep(180000);
+        checkFinalState(env);
+        env.getLogger().trigger("done");
+        Thread.sleep(200000);
 
     }
 

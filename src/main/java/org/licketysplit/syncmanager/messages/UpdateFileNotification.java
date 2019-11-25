@@ -7,7 +7,6 @@ import org.licketysplit.securesocket.messages.*;
 import org.licketysplit.syncmanager.FileInfo;
 import org.licketysplit.syncmanager.FileManager;
 
-import java.io.IOException;
 import java.util.logging.Level;
 
 public class UpdateFileNotification extends JSONMessage {
@@ -39,13 +38,9 @@ public class UpdateFileNotification extends JSONMessage {
             FileManager fm = env.getFM();
             env.getLogger().log(Level.INFO, "updating file: " + fileInfo.getName());
             try {
-                 fm.updateFileInManifest(fileInfo);
-                try {
-//                    fS.downloadFrom(conn, fileInfo.getName());
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            } catch(IOException e){
+                fm.fileUpdatedNotification(fileInfo);
+            } catch(Exception e){
+                env.getLogger().log(Level.INFO, "Update file", e);
                 e.printStackTrace();
             }
         }

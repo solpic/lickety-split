@@ -12,6 +12,8 @@
         <maven.test.skip>true</maven.test.skip>
         <should.redeploy>no</should.redeploy>
         <use.localthreaded>no</use.localthreaded>
+        <package.command>none</package.command>
+        <jar.path>none</jar.path>
     </properties>
 
     <profiles>
@@ -25,6 +27,13 @@
             <id>local-threads</id>
             <properties>
                 <use.localthreaded>yes</use.localthreaded>
+            </properties>
+        </profile>
+        <profile>
+            <id>merrill-laptop</id>
+            <properties>
+                <package.command>"C:\Program Files\JetBrains\IntelliJ IDEA Community Edition 2019.2.2\jbr\bin\java.exe" -Dmaven.multiModuleProjectDirectory=C:\Users\meps5\IdeaProjects\licketysplit "-Dmaven.home=C:\Program Files\JetBrains\IntelliJ IDEA Community Edition 2019.2.2\plugins\maven\lib\maven3" "-Dclassworlds.conf=C:\Program Files\JetBrains\IntelliJ IDEA Community Edition 2019.2.2\plugins\maven\lib\maven3\bin\m2.conf" "-Dmaven.ext.class.path=C:\Program Files\JetBrains\IntelliJ IDEA Community Edition 2019.2.2\plugins\maven\lib\maven-event-listener.jar" "-javaagent:C:\Program Files\JetBrains\IntelliJ IDEA Community Edition 2019.2.2\lib\idea_rt.jar=63541:C:\Program Files\JetBrains\IntelliJ IDEA Community Edition 2019.2.2\bin" -Dfile.encoding=UTF-8 -classpath "C:\Program Files\JetBrains\IntelliJ IDEA Community Edition 2019.2.2\plugins\maven\lib\maven3\boot\plexus-classworlds-2.6.0.jar" org.codehaus.classworlds.Launcher -Didea.version2019.2.2 package -P local-threads,redeploy</package.command>
+                <jar.path>C:\Users\meps5\IdeaProjects\licketysplit\target\lickety-split-1.0-SNAPSHOT-jar-with-dependencies.jar</jar.path>
             </properties>
         </profile>
     </profiles>
@@ -133,6 +142,8 @@
                     <systemPropertyVariables>
                         <shouldRedeploy>${should.redeploy}</shouldRedeploy>
                         <useLocalThreaded>${use.localthreaded}</useLocalThreaded>
+                        <packageCommandString>${package.command}</packageCommandString>
+                        <jarPath>${jar.path}</jarPath>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>

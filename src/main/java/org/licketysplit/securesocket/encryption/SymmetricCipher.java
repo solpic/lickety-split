@@ -77,6 +77,9 @@ public class SymmetricCipher {
         decryptor = Cipher.getInstance("AES/CBC/PKCS5Padding");
         encryptor.init(Cipher.ENCRYPT_MODE, key, ivspec);
         decryptor.init(Cipher.DECRYPT_MODE, key, ivspec);
+
+        keyBytesStored = key.getEncoded();
+        ivBytesStored = iv;
         return new SymmetricKey(key, iv);
     }
 }

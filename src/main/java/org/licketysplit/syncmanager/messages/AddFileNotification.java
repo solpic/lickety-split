@@ -39,13 +39,9 @@ public class AddFileNotification extends JSONMessage {
             FileManager fm = env.getFM();
             env.getLogger().log(Level.INFO, "adding file: " + fileInfo.getName());
             try {
-                fm.addFileToManifest(fileInfo);
-                try {
-                    fS.download(fileInfo);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            } catch(IOException e){
+                fm.addFileNotification(fileInfo);
+            } catch(Exception e){
+                env.getLogger().log(Level.INFO, "Add file", e);
                 e.printStackTrace();
             }
         }
