@@ -14,11 +14,12 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.licketysplit.Main;
 import org.licketysplit.env.Debugger;
+import org.licketysplit.env.EnvLogger;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.*;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -35,9 +36,76 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestHarness {
+    static String logFolder = "test-logs";
+    public static void initializeLogs() {
+        File file = new File(logFolder);
+        if(!file.exists()) {
+            file.mkdir();
+        }
+    }
+    public static Logger fileOnlyLogger(String name, String filename) throws IOException {
+        initializeLogs();
+        filename = Paths.get(logFolder, filename).toString();
+        EnvLogger.resetLogmanager();
+        Logger logger = Logger.getLogger(name);
+        for (Handler handler : logger.getHandlers()) {
+            logger.removeHandler(handler);
+        }
+
+        FileHandler fh = new FileHandler(filename);
+        fh.setFormatter(new SimpleFormatter() {
+            private static final String format = "[%1$tF %1$tT.%1$tL] %3$s %n";
+
+            @Override
+            public synchronized String format(LogRecord lr) {
+                return lr.getMessage()+"\n";
+            }
+        });
+        logger.addHandler(fh);
+
+        return logger;
+    }
+
+    public static Logger fileAndConsoleLogger(String name, String filename) throws Exception {
+        initializeLogs();
+        filename = Paths.get(logFolder, filename).toString();
+        EnvLogger.resetLogmanager();
+        Logger logger = Logger.getLogger(name);
+        for (Handler handler : logger.getHandlers()) {
+            logger.removeHandler(handler);
+        }
+
+        FileHandler fh = new FileHandler(filename);
+        fh.setFormatter(new SimpleFormatter() {
+            private static final String format = "[%1$tF %1$tT.%1$tL] %3$s %n";
+
+            @Override
+            public synchronized String format(LogRecord lr) {
+                return String.format("%s\n", lr.getMessage());
+            }
+        });
+        logger.addHandler(fh);
+        EnvLogger.StdoutConsoleHandler handler = new EnvLogger.StdoutConsoleHandler();
+        handler.setFormatter(new SimpleFormatter() {
+            private static final String format = "[%1$tF %1$tT.%1$tL] %3$s %n";
+
+            @Override
+            public synchronized String format(LogRecord lr) {
+                return lr.getMessage()+"\n";
+            }
+        });
+
+        logger.addHandler(handler);
+
+        return logger;
+    }
+
     public TestHarness() {
 
     }
+
+    public Logger allLogs;
+    public Logger testStatusLogger;
 
     AmazonEC2 ec2 = null;
     int maxInstances = 0;
@@ -95,35 +163,6 @@ public class TestHarness {
         waitUntilState(toStop, "stopped");
     }
 
-//    JSch jsch = null;
-//    Object jschLock = new Object();
-//    JSch getJSch() throws Exception {
-//        synchronized (jschLock) {
-//            if(jsch==null) {
-//                jsch = new JSch();
-//                jsch.addIdentity("licketysplit-p2p.pem");
-//                jsch.setConfig("StrictHostKeyChecking", "no");
-//            }
-//        }
-//        return jsch;
-//    }
-//
-//    Map<String, Session> sessions= new HashMap<>();
-//    Session getSession(String host) throws Exception {
-//        synchronized (sessions) {
-//            if(sessions==null) {
-//                sessions = new HashMap<>();
-//            }
-//
-//            if(!sessions.containsKey(host)) {
-//
-//                Session session = getJSch().getSession("ec2-user", host);
-//                session.connect();
-//                sessions.put(host, session);
-//            }
-//            return sessions.get(host);
-//        }
-//    }
 
     Map<String, ChannelSftp> sftps = new HashMap<>();
     ChannelSftp getSftp(String host) throws Exception {
@@ -142,23 +181,6 @@ public class TestHarness {
         }
     }
 
-//    Map<String, ChannelExec> execs;
-//    ChannelExec getExec(String host) throws Exception {
-//
-//        synchronized (execs) {
-//            if(execs==null) {
-//                execs = new HashMap<>();
-//            }
-//
-//            if(!execs.containsKey(host)) {
-//                Session session = getSession(host);
-//                ChannelExec channel = (ChannelExec)session.openChannel("exec");
-//                channel.setCommand(cmd);
-//                channel.connect();
-//            }
-//        }
-//    }
-
 
     void upload(String host, String[] sources, String[] destinations) throws Exception {
         JSch jSch = new JSch();
@@ -170,7 +192,8 @@ public class TestHarness {
         sftp.connect();
         //ChannelSftp sftp = getSftp(host);
         for (int i = 0; i < sources.length; i++) {
-            System.out.println(String.format(
+            testStatusLogger.log(Level.INFO,
+            String.format(
                     "Uploading file: %s, as: %s, to host: %s",
                     sources[i], destinations[i], host));
             sftp.put(sources[i], destinations[i]);
@@ -181,20 +204,8 @@ public class TestHarness {
     }
 
     void download(String host, String src, String dst) throws Exception {
-//        JSch jSch = new JSch();
-//        jSch.addIdentity("licketysplit-p2p.pem");
-//        jSch.setConfig("StrictHostKeyChecking", "no");
-//        Session session = jSch.getSession("ec2-user", host);
-//        session.connect();
-//        ChannelSftp sftp = (ChannelSftp) session.openChannel("sftp");
-//        sftp.connect();
-
-
         ChannelSftp sftp = getSftp(host);
         sftp.get(src, dst);
-//        sftp.exit();
-//        sftp.disconnect();
-//        session.disconnect();
     }
 
     String pemPath = Paths.get("aws-files", "licketysplit-p2p.pem").toAbsolutePath().toString();
@@ -224,11 +235,6 @@ public class TestHarness {
     }
 
     void runSSH(String host, String cmd, boolean withTriggers) throws Exception {
-//        System.out.println(String.format("Running cmd: %s, on host %s", cmd, host));
-//        JSch jSch = new JSch();
-//        jSch.addIdentity("licketysplit-p2p.pem");
-//        jSch.setConfig("StrictHostKeyChecking", "no");
-//        Session session = jSch.getSession("ec2-user", host);
         JSch jsch = new JSch();
         jsch.addIdentity(pemPath);
         jsch.setConfig("StrictHostKeyChecking", "no");
@@ -242,7 +248,7 @@ public class TestHarness {
         BufferedReader br = new BufferedReader(new InputStreamReader(input, "UTF-8"));
         String line;
         while ((line = br.readLine()) != null) {
-            System.out.println(line);
+            allLogs.log(Level.INFO, line);
             if(withTriggers) {
                 Debugger.global().parseTrigger(line);
             }
@@ -250,7 +256,7 @@ public class TestHarness {
         channel.disconnect();
 //        session.disconnect();
 
-        System.out.println(String.format("Done running %s on host %s", cmd, host));
+        testStatusLogger.log(Level.INFO, String.format("Done running %s on host %s", cmd, host));
     }
 
 
@@ -262,11 +268,12 @@ public class TestHarness {
         BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream(), "UTF-8"));
         String line;
         while ((line = br.readLine()) != null) {
-            System.out.println(line);
+            allLogs.log(Level.INFO, line);
+            Debugger.global().parseTrigger(line);
         }
         int exitCode = p.waitFor();
 
-        System.out.println("Process terminated with " + exitCode);
+        testStatusLogger.log(Level.INFO, "Process terminated with " + exitCode);
     }
 
     private void runLocal(TestNetworkManager.PeerGenInfo peer) throws Exception {
@@ -292,7 +299,7 @@ public class TestHarness {
             instancesCount = stopped.size();
         }
 
-        System.out.println(String.format("%d instances total, %d running, will start %d",
+        testStatusLogger.log(Level.INFO, String.format("%d instances total, %d running, will start %d",
                 runningCount+stopped.size(), runningCount, instancesCount));
 
         List<Instance> started = new LinkedList<>();
@@ -331,7 +338,7 @@ public class TestHarness {
     }
 
     public void uploadToBucket(String file, String key, String bucketName) throws Exception {
-        System.out.format("Uploading %s to S3 bucket %s...\n", file, bucketName);
+        testStatusLogger.log(Level.INFO, String.format("Uploading %s to S3 bucket %s...\n", file, bucketName));
 
         final AmazonS3 s3 = AmazonS3ClientBuilder.standard().withRegion(Regions.US_EAST_1).build();
         try {
@@ -488,6 +495,9 @@ public class TestHarness {
         dbg.setTrigger("assert", (Object ...args) ->{
             assertions.add(args);
         });
+        dbg.setTrigger("print", (Object ...args) -> {
+            testStatusLogger.log(Level.INFO, (String)args[1]);
+        });
 
         AtomicInteger count = new AtomicInteger(peers.size());
         dbg.setTrigger("done", (Object ...args) -> {
@@ -515,7 +525,7 @@ public class TestHarness {
                 }catch(Exception e) {
                     e.printStackTrace();
                 }
-                System.out.println("Decrementing runner count");
+                testStatusLogger.log(Level.INFO, "Decrementing runner count");
                 runningMap.put(peer.username, false);
                 runningCount.decrementAndGet();
             }).start();
@@ -533,7 +543,7 @@ public class TestHarness {
                     Thread.sleep(1000);
                     synchronized (finishLock) {
                         if(finished) {
-                            System.out.println("Forcing finish");
+                            testStatusLogger.log(Level.INFO, "Forcing finish");
                             break;
                         }
                     }
@@ -563,7 +573,13 @@ public class TestHarness {
                 String username = (String)args[0];
                 boolean val = (boolean)args[1];
                 String msg = (String)args[2];
-                assertTrue(val, username+": "+msg);
+                if(val) {
+                    testStatusLogger.log(Level.INFO, String.format("TEST PASSED!\n%s ->\n%s", username, msg));
+                }else{
+                    testStatusLogger.log(Level.INFO, String.format(
+                            "TEST FAILED!\n%s ->\n%s", username, msg)
+                    );
+                }
             }
             synchronized (finishLock) {
                 if(finished) {
@@ -589,7 +605,7 @@ public class TestHarness {
             if(retries==0) {
                 throw e;
             }else{
-                System.out.println("Retrying download logs");
+                testStatusLogger.log(Level.INFO, "Retrying download logs");
             }
         }
         return null;
@@ -651,7 +667,7 @@ public class TestHarness {
             String out = IOUtils.toString(inputStream, StandardCharsets.UTF_8.name());
             int exitCode = p.waitFor();
             //System.out.println(out);
-            System.out.println("Process terminated with " + exitCode);
+            testStatusLogger.log(Level.INFO, "Process terminated with " + exitCode);
         } catch (Exception e) {
             e.printStackTrace();
         }

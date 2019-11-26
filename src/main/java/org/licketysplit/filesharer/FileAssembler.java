@@ -8,6 +8,8 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class FileAssembler implements Runnable{
 
@@ -20,7 +22,7 @@ public class FileAssembler implements Runnable{
     private HashSet<Integer> completed;
     private IsFinished isFinished;
 
-    private File downloadToPath;
+    public File downloadToPath;
     public FileAssembler(FileInfo fileInfo, Environment env, int lengthInChunks, IsFinished isFinished) throws IOException {
         this.env = env;
         this.fileInfo = fileInfo;
@@ -41,9 +43,18 @@ public class FileAssembler implements Runnable{
         return fileInfo;
     }
 
+    public AtomicLong lastChunkWritten;
+    long getLastChunkWrittenTime() {
+        if(lastChunkWritten!=null) {
+            return lastChunkWritten.get();
+        }else{
+            return -1;
+        }
+    }
     @Override
     public void run() {
         try {
+            lastChunkWritten = new AtomicLong(-1);
             Chunk chunk;
             //consuming messages until exit message is received
             while (true) {
@@ -57,6 +68,7 @@ public class FileAssembler implements Runnable{
                         this.file.write(chunk.bytes);
                         this.completed.add(chunk.chunk);
                         this.numOfChunks++;
+                        lastChunkWritten.set(System.currentTimeMillis());
                         env.log("CURRENT " + this.numOfChunks + " GOAL: " + this.lengthInChunks);
                     } else{
                         env.log("DUPLICATE");

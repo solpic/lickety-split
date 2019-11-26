@@ -4,3 +4,4 @@ target/
 test-data/
 logs/
 remote-logs/
+test-logs/

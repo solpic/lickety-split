@@ -131,14 +131,15 @@ public class FileManager {
                         JSONObject yours = new JSONObject(yourFiles.get(j).toString());
                         if (yours.getString("name").equals(theirs.getString("name"))) {
                             FileInfo laterStampFile = new FileInfo(this.compareTimestamp(yours, theirs));
-                            if(this.compareTimestamp(yours, theirs)!=yours) {
-                                if(!laterStampFile.isDeleted()) {
-                                    changed = true;
-                                    updateFileHandler(laterStampFile);
-                                }
-                            }
                             if (laterStampFile.isDeleted()) {
                                 this.deleteFileFromFolderIfExists(this.getSharedDirectoryPath(laterStampFile.getName()));
+                            }else{
+                                if(this.compareTimestamp(yours, theirs)!=yours) {
+                                    if(!laterStampFile.isDeleted()) {
+                                        changed = true;
+                                        updateFileHandler(laterStampFile);
+                                    }
+                                }
                             }
                             yourFiles = this.replace(laterStampFile, yourFiles);
                             alreadyExists = true;
@@ -178,10 +179,11 @@ public class FileManager {
     }
 
     //Adds file to manifest and folder
-    public FileInfo addFile(String fileLocation){
+    public FileInfo addFile(String fileLocation) throws Exception{
         File source = new File(fileLocation);
         File dest = new File(this.getSharedDirectoryPath(source.getName()));
         FileInfo info = new FileInfo(source, new Date().getTime());
+        info.md5 = env.getSyncManager().getMD5(source);
         try {
             this.addFileToManifest(info);
             this.addFileToFolder(source, dest);

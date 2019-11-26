@@ -3,6 +3,7 @@ package org.licketysplit.securesocket.peers;
 import com.sun.net.httpserver.Authenticator;
 import org.licketysplit.env.EnvLogger;
 import org.licketysplit.env.Environment;
+import org.licketysplit.env.Retrier;
 import org.licketysplit.securesocket.SecureSocket;
 import org.licketysplit.securesocket.encryption.AsymmetricCipher;
 import org.licketysplit.securesocket.encryption.SymmetricCipher;
@@ -69,102 +70,54 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
     }
     public void setEnv(Environment env) {
         this.env = env;
+        this.retry.env = env;
         log = this.env.getLogger();
     }
 
 
-    public static class RetryInfo {
-        public PeerAddress peer;
-        public int attempts;
-        public long nextRetry = 0;
+    void createSocketAndConnect(PeerAddress peer) throws Exception {
+        if (peer.getServerInfo() == null) return;
+        // First check that we should connect
+        if (peer.user.equals(env.getUserInfo())) return;
+
+        if (peers.containsKey(peer)) return;
+        for (Map.Entry<UserInfo, SecureSocket> peerInfo : peers.entrySet()) {
+            if (peer.getUser().getUsername().equals(peerInfo.getKey().getUsername())) return;
+        }
+        //log.log(Level.INFO,
+        //        String.format("Connecting to user: %s, at IP: %s, port %d",
+        //                peer.getUser().getUsername(), peer.ip, peer.getServerInfo().port));
+        newConnectionHandler(SecureSocket.connect(peer, env), false);
     }
 
-    int retrySleep = 5000;
-    int retryCount = 4;
-    public void retry(String username) {
+    Retrier retry = new Retrier(new int[]{10000, 20000, 20000, 20000}, 60000);
+
+    public void retryAddPeer(PeerAddress peer) throws Exception {
         new Thread(() -> {
             try {
-                boolean shouldRetry = false;
-                PeerAddress peer;
-                long nextRetry;
-                synchronized (retries) {
-                    if(retries.containsKey(username)) {
-                        RetryInfo retryInfo = retries.get(username);
-                        retryInfo.attempts++;
-                        peer = retryInfo.peer;
-                        if(retryInfo.attempts<retryCount) shouldRetry = true;
-                        if(retryInfo.nextRetry==0) {
-                            retryInfo.nextRetry = System.currentTimeMillis()+retrySleep;
-                        }else{
-                            retryInfo.nextRetry = Math.max(retryInfo.nextRetry+retrySleep, System.currentTimeMillis()+retrySleep);
-                        }
-                        nextRetry = retryInfo.nextRetry;
-                    }else{
-                        RetryInfo retryInfo = new RetryInfo();
-                        retryInfo.attempts = 0;
-                        retryInfo.peer = env.getInfo().getPeers().get(username).convertToPeerAddress();
-                        retries.put(username, retryInfo);
-                        peer = retryInfo.peer;
-                        nextRetry = 0;
-                    }
+                if(retry.tryOrRetry(peer.getUser().getUsername(), false)) {
+                    createSocketAndConnect(peer);
                 }
-                if(shouldRetry) {
-                    long diff = nextRetry-System.currentTimeMillis();
-                    if(diff>0) {
-                        Thread.sleep(diff);
-                        env.log("Retrying connection to " + username);
-                        createSocketAndConnect(peer);
-                    }
-                }
-            }catch(Exception e) {
-                e.printStackTrace();
+            } catch(Exception e) {
+                env.getLogger().log(Level.INFO,
+                        "Error starting addPeer",
+                        e);
             }
         }).start();
     }
 
-    private void removeRetry(String username) {
-        synchronized (retries) {
-            if(retries.containsKey(username)) {
-                retries.remove(username);
-            }else{
-                env.log("ERROR -> confirming user not in retry map "+username);
-            }
-        }
-    }
-    ConcurrentHashMap<String, RetryInfo> retries = new ConcurrentHashMap<>();
-
-    void createSocketAndConnect(PeerAddress peer) throws Exception {
-        try {
-            if (peer.getServerInfo() == null) return;
-            // First check that we should connect
-            if (peer.user.equals(env.getUserInfo())) return;
-
-            if (peers.containsKey(peer)) return;
-            for (Map.Entry<UserInfo, SecureSocket> peerInfo : peers.entrySet()) {
-                if (peer.getUser().getUsername().equals(peerInfo.getKey().getUsername())) return;
-            }
-            //log.log(Level.INFO,
-            //        String.format("Connecting to user: %s, at IP: %s, port %d",
-            //                peer.getUser().getUsername(), peer.ip, peer.getServerInfo().port));
-            newConnectionHandler(SecureSocket.connect(peer, env), false);
-        } catch(Exception e) {
-            retry(peer.getUser().getUsername());
-        }
-    }
-
     public void addPeer(PeerAddress peer) throws Exception {
-        boolean shouldConnect = false;
-        synchronized (retries) {
-            String username = peer.getUser().getUsername();
-            if(!retries.containsKey(username)) {
-                RetryInfo retryInfo = new RetryInfo();
-                retryInfo.attempts = 0;
-                retryInfo.peer = peer;
-                shouldConnect = true;
+        new Thread(() -> {
+            try {
+                if(retry.tryOrRetry(peer.getUser().getUsername(), true)) {
+                    createSocketAndConnect(peer);
+                }
+            } catch(Exception e) {
+                env.getLogger().log(Level.INFO,
+                        "Error starting addPeer",
+                        e);
             }
-        }
-        if(shouldConnect)
-            createSocketAndConnect(peer);
+        }).start();
     }
 
     public static class SyncInfoDir extends JSONMessage {
@@ -275,7 +228,6 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         log.log(Level.INFO, "New peer '"+user.getUsername()+"' has been confirmed");
         log.log(Level.INFO, "Total peer count: "+peers.size());
         env.getDebug().trigger("peerConfirmed", user, sock);
-        removeRetry(user.getUsername());
         for (NewConnectionHandler handler : onConnectHandlers) {
             handler.connectionConfirmed(user, sock, env);
         }
@@ -439,13 +391,23 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
                     String.format("Handshaking error"),
                     e
             );
-            retry(toUser);
+            retryAddPeer(peerFromUsername(toUser));
             return;
 //            e.printStackTrace();
 //            throw new Exception("Error handshaking with "+toUser);
         }
         if(marked) {
             unlockHandshake(toUser);
+        }
+    }
+
+    public PeerAddress peerFromUsername(String username) {
+        try {
+            return env.getInfo().getPeers().get(username).convertToPeerAddress();
+        } catch(Exception e) {
+            env.getLogger().log(Level.INFO,
+                    "Error getting peer info for "+username, e);
+            return null;
         }
     }
 
@@ -545,7 +507,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
             }
             env.getLogger().log(Level.INFO, "Handshake error", e);
             e.printStackTrace();
-            retry(toUser);
+            retryAddPeer(peerFromUsername(toUser));
             throw new Exception("Error handshaking with "+toUser);
         }
         if(marked) {

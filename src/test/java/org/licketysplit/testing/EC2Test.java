@@ -8,19 +8,29 @@ import org.licketysplit.securesocket.encryption.SymmetricCipher;
 import org.licketysplit.testing.TestHarness.P2PTestInfo;
 
 import java.io.File;
+import java.nio.file.Paths;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class EC2Test {
+    public static boolean shouldRedeploy() {
+        return "yes".equals( System.getProperty("shouldRedeploy"));
+    }
+    public static boolean localThreaded() {
+        return "yes".equals(System.getProperty("useLocalThreaded"));
+    }
+
     @Test
     public void itWorks() throws Exception {
         TestHarness testHarness = new TestHarness();
         P2PTestInfo hackMaster = new P2PTestInfo();
-        boolean shouldRedeploy = "yes".equals( System.getProperty("shouldRedeploy"));
-        boolean localThreaded = "yes".equals(System.getProperty("useLocalThreaded"));
-
+        Logger allLogs = TestHarness.fileOnlyLogger("allLogs", Paths.get("everything.log").toString());
+        Logger testStatus = TestHarness.fileAndConsoleLogger("testStatus", Paths.get("test-results.log").toString());
+        testHarness.allLogs = allLogs;
+        testHarness.testStatusLogger = testStatus;
         ConcurrentHashMap<String, String> hasFiles = new ConcurrentHashMap<>();
         int remoteCount = 5;
         int localCount = 0;
@@ -36,7 +46,7 @@ public class EC2Test {
                 }
             }
         });
-        TestHarness.P2PTestInfo results = testHarness.generateNetwork(remoteCount, localCount, shouldRedeploy, localThreaded);
+        TestHarness.P2PTestInfo results = testHarness.generateNetwork(remoteCount, localCount, shouldRedeploy(), localThreaded());
         assertEquals(running.get(), 0);
     }
 

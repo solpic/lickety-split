@@ -1,5 +1,6 @@
 package org.licketysplit.syncmanager;
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.json.JSONObject;
 import org.licketysplit.env.Environment;
 import org.licketysplit.filesharer.DownloadManager;
@@ -13,6 +14,9 @@ import org.licketysplit.syncmanager.messages.UpdateManifestRequest;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -46,6 +50,13 @@ public class SyncManager {
         }
     }
 
+
+    public String getMD5(File file) throws Exception {
+        InputStream is = Files.newInputStream(file.toPath());
+        String md5 = DigestUtils.md5Hex(is);
+        return md5;
+    }
+
     public void addFile(String filePath) throws Exception {
         FileInfo info = this.env.getFM().addFile(filePath);
 
@@ -75,10 +86,6 @@ public class SyncManager {
         //2. Update manifest
         //3. return file infos
 
-    }
-
-    public void downloadFile(FileInfo fileInfo) throws Exception {
-        this.env.getFS().download(fileInfo);
     }
 
     public void syncManifests() throws Exception {

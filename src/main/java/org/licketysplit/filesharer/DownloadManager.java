@@ -10,6 +10,7 @@ import org.licketysplit.securesocket.messages.ReceivedMessage;
 import org.licketysplit.securesocket.peers.UserInfo;
 import org.licketysplit.syncmanager.FileInfo;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,7 +25,7 @@ interface IsFinished {
 public class DownloadManager implements Runnable {
 
     private FileAssembler fileAssembler;
-    private HashMap<UserInfo, PeerDownloadInfo> peers;
+    private ConcurrentHashMap<UserInfo, PeerDownloadInfo> peers;
     private ArrayList<Integer> necessaryAndAvailableChunks;
     private Environment env;
     private Thread assemblingThread;
@@ -34,8 +35,10 @@ public class DownloadManager implements Runnable {
     private ReentrantLock lock;
     private UpdateDownloads updateDownloads;
     private ArrayList<Integer> completedChunks;
+    private File downloadToPath;
 
-    public DownloadManager(FileInfo fileInfo, Environment env, UpdateDownloads updateDownloads) throws IOException {
+    public DownloadManager(FileInfo fileInfo, Environment env, UpdateDownloads updateDownloads, Object doneLock) throws IOException {
+        this.doneLock = doneLock;
         IsFinished isFinished = (boolean finish) -> {
             this.isFinished.set(finish);
         };
@@ -44,9 +47,10 @@ public class DownloadManager implements Runnable {
         this.isFinished.set(false);
         this.fileAssembler = new FileAssembler(fileInfo, env, this.getLengthInChunks(fileInfo), isFinished);
         this.assemblingThread = new Thread(fileAssembler);
+        this.downloadToPath = fileAssembler.downloadToPath;
         this.assemblingThread.start();
         this.necessaryAndAvailableChunks = new ArrayList<Integer>();
-        this.peers = new HashMap<UserInfo, PeerDownloadInfo>();
+        this.peers = new ConcurrentHashMap<UserInfo, PeerDownloadInfo>();
         this.env = env;
         this.updateAfterTwenty = 0;
         this.isCanceled.set(false);
@@ -54,9 +58,47 @@ public class DownloadManager implements Runnable {
         this.completedChunks = new ArrayList<Integer>();
     }
 
+    void startProgressWatcher() {
+        int waitPeriod = 10000;
+        int stopAfterTime = 30000;
+        String fname = fileAssembler.getFileInfo().getName();
+        new Thread(() -> {
+            long lastChunkWritten = System.currentTimeMillis();
+            while(!isFinished.get() && !isCanceled.get()) {
+                try {
+                    long l = fileAssembler.getLastChunkWrittenTime();
+                    if(l!=-1) {
+                        lastChunkWritten = l;
+                    }
+                    long failureTime = lastChunkWritten+stopAfterTime;
+                    long diff = failureTime -  System.currentTimeMillis();
+                    if(diff>0) {
+                        Thread.sleep(diff);
+                    }
+                    if(failureTime-fileAssembler.getLastChunkWrittenTime()>stopAfterTime) {
+                        env.log("Failing "+fname+" because stopped");
+                        failBecauseStopped();
+                        return;
+                    }else{
+                        env.log(fname+" download is good");
+                    }
+                } catch(Exception e) {
+                    env.getLogger().log(Level.INFO,
+                            "Exception in progress watcher for "+fname, e);
+                }
+            }
+        }).start();
+    }
+    void failBecauseStopped() {
+        if(!isFinished.get() && !isCanceled.get()) {
+            isFinished.set(true);
+        }
+    }
+
     @Override
     public void run() {
         try {
+            startProgressWatcher();
             PeerDownloadInfo peer;
             UserInfo user;
             int chunk;
@@ -80,7 +122,7 @@ public class DownloadManager implements Runnable {
                 }
             }
             env.log(String.format("Download manager done, finished: %b, Cancelled: %b", isFinished.get(), isCanceled.get()));
-            if(!isCanceled.get()) this.finish();
+            this.finish();
         } catch(Exception e){
             e.printStackTrace();
         }
@@ -118,7 +160,7 @@ public class DownloadManager implements Runnable {
 
     public void addPeerAndRequestChunkIfPossible(PeerChunkInfo peerInfo, SecureSocket socket, UserInfo userInfo) throws Exception {
         if(peerInfo.getChunks().size() == 0) {
-            env.getLogger().log(String.format("Peer %s has NO chunks", userInfo.getUsername()));
+            //env.getLogger().log(String.format("Peer %s has NO chunks", userInfo.getUsername()));
             return;
         }
         env.getLogger().log(String.format("Peer %s has chunk", userInfo.getUsername()));
@@ -127,7 +169,7 @@ public class DownloadManager implements Runnable {
         this.makeUserAvailable(userInfo);
     }
 
-    public HashMap<UserInfo, PeerDownloadInfo> getPeers(){
+    public ConcurrentHashMap<UserInfo, PeerDownloadInfo> getPeers(){
         return this.peers;
     }
 
@@ -211,11 +253,29 @@ public class DownloadManager implements Runnable {
         }
     }
 
-    public void finish(){
-        this.env.getLogger().log(Level.INFO, "FINISHED FILE " + this.fileAssembler.getFileInfo().getName());
-        this.env.getDebug().trigger("download-complete", this.fileAssembler.getFileInfo().getName());
-        this.updateDownloads.update();
-        env.getFS().cancelOrFinish(this.fileAssembler.getFileInfo());
+    public boolean hasFailed = false;
+    public Object doneLock;
+    public void finish() throws Exception{
+        String md5 = env.getSyncManager().getMD5(downloadToPath);
+        String compMD5 = this.fileAssembler.getFileInfo().md5;
+        this.fileAssembler.cancel();
+        if(md5.equals(compMD5)&&!isCanceled.get()) {
+            this.env.getLogger().log(Level.INFO, "FINISHED FILE " + this.fileAssembler.getFileInfo().getName());
+            this.env.getDebug().trigger("download-complete", this.fileAssembler.getFileInfo().getName());
+            this.updateDownloads.update();
+            env.getFS().cancelOrFinish(this.fileAssembler.getFileInfo());
+        }else if(!isCanceled.get()){
+            this.hasFailed = true;
+            env.getFS().failed(this.fileAssembler.getFileInfo());
+            this.env.getLogger().log(String.format("" +
+                    "MD5's don't match, theirs: %s, ours %s, file download failed for %s",
+                    compMD5, md5, this.fileAssembler.getFileInfo().getName()));
+        }else{
+            env.getLogger().log("File download cancelled");
+        }
+        synchronized (doneLock) {
+            doneLock.notifyAll();
+        }
     }
 
 }

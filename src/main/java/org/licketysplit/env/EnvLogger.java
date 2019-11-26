@@ -48,6 +48,16 @@ public class EnvLogger {
         };
     }
 
+
+    public static void resetLogmanager() {
+        synchronized (hasReset) {
+            if (!hasReset) {
+                LogManager.getLogManager().reset();
+                hasReset = true;
+            }
+        }
+    }
+
     public EnvLogger(String username) {
         this.username = username;
 

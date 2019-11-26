@@ -44,6 +44,15 @@ public class FileInfo {
     public long length;
     public long timeStamp;
     public boolean deleted;
+    public String md5;
+
+    public String getMd5() {
+        return md5;
+    }
+
+    public void setMd5(String md5) {
+        this.md5 = md5;
+    }
 
     public FileInfo(){}
 
@@ -74,5 +83,6 @@ public class FileInfo {
         this.length = info.getLong("length");
         this.timeStamp = info.getLong("timeStamp");
         this.deleted = info.getBoolean("deleted");
+        this.md5 = info.getString("md5");
     }
 }

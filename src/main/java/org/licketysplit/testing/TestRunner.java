@@ -1,5 +1,6 @@
 package org.licketysplit.testing;
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import org.licketysplit.env.Environment;
 import org.licketysplit.filesharer.FileSharer;
@@ -102,43 +103,52 @@ public class TestRunner {
     void checkFinalState(Environment env) throws Exception {
         boolean good = true;
         StringBuilder msg = new StringBuilder();
-        Map<String, byte[]> finalContents = new HashMap<>();
-        for (FileChange change : changes) {
-            if(change.create) {
-                finalContents.put(change.path, change.contents);
-            }
-        }
-        for (Map.Entry<String, byte[]> fileEntry : finalContents.entrySet()) {
-            String filename = fileEntry.getKey();
-            File file = new File(env.getFM().getSharedDirectoryPath(filename));
-            byte[] contents = fileEntry.getValue();
-            if(contents==null) {
-                if(!file.exists()) {
-                    msg.append(String.format("%s doesn't exist\n", file.getPath()));
-                }else{
-                    good = false;
-                    msg.append(String.format("%s exists BUT SHOULD NOT\n", file.getPath()));
-                }
-            }else{
-                if(!file.exists()) {
-                    good = false;
-                    msg.append(String.format("%s does not exist BUT SHOULD\n", file.getPath()));
-                }else{
-                    byte[] downloaded = FileUtils.readFileToByteArray(file);
-                    if(compareByteFiles(downloaded, contents)) {
-                        msg.append(String.format("%s matches original, size %d\n", file.getPath(), contents.length));
-                    }else{
+        synchronized (finalContents) {
+            for (Map.Entry<String, byte[]> fileEntry : finalContents.entrySet()) {
+                String filename = fileEntry.getKey();
+                File file = new File(env.getFM().getSharedDirectoryPath(filename));
+                byte[] contents = fileEntry.getValue();
+                if (contents == null) {
+                    if (!file.exists()) {
+                        msg.append(String.format("%s doesn't exist\n", file.getPath()));
+                    } else {
                         good = false;
-                        msg.append(String.format("%s does not match original\n\tORIGINAL: %s\n\tDOWNLOADED: %s\n", file.getAbsolutePath(),
-                                Base64.getEncoder().encodeToString(contents), Base64.getEncoder().encodeToString(downloaded)));
+                        msg.append(String.format("%s exists BUT SHOULD NOT\n", file.getPath()));
+                    }
+                } else {
+                    if (!file.exists()) {
+                        good = false;
+                        msg.append(String.format("%s does not exist BUT SHOULD\n", file.getPath()));
+                    } else if (env.getFS().isInProgress(file.getName())) {
+                        good = false;
+                        msg.append(String.format("%s is not done downloading\n", file.getPath()));
+                    } else {
+                        byte[] downloaded = FileUtils.readFileToByteArray(file);
+                        int s = contents.length;
+                        float kb = ((float)s)/1024.0f;
+                        String size = String.format("%f KB", kb);
+                        if(kb>500) {
+                            size = String.format("%f MB", kb/1024.0f);
+                        }
+                        if (compareByteFiles(downloaded, contents)) {
+                            msg.append(String.format("%s matches original, size %s\n", file.getPath(), size));
+                        } else {
+                            good = false;
+                            msg.append(String.format("%s does not match original ->\n\tHASH-ORIG: %s\n\tHASH-DOWN: %s\n\tORIG: %s\n\tDOWN: %s",
+                                    file.getAbsolutePath(),
+                                    DigestUtils.md5Hex(contents),
+                                    DigestUtils.md5Hex(downloaded),
+                                    Base64.getEncoder().encodeToString(contents),
+                                    Base64.getEncoder().encodeToString(downloaded)));
+                        }
                     }
                 }
             }
         }
         env.getLogger().trigger("assert", good, msg.toString());
-        env.getLogger().trigger("count", "ok");
-        env.log(String.format("FINAL GOOD: %b, MSG:\n%s", good, msg.toString()));
+        //env.log(String.format("FINAL GOOD: %b, MSG:\n%s", good, msg.toString()));
     }
+
 
 
     Random randomFileMaker = new Random(100);
@@ -158,15 +168,28 @@ public class TestRunner {
         public int delay;
 
 
-        public static FileChange randomCreate(Random r, int delay, int maxUsers) {
+        public static FileChange randomCreate(Random r, int delay, int sizeMin, int sizeMax, int maxUsers) {
             FileChange change = new FileChange();
             change.userNumber = r.nextInt(maxUsers);
             change.create = true;
             change.path = String.format("random-file-%d", r.nextInt(100000));
-            change.contents = new byte[r.nextInt(1000)+500];
+            change.contents = new byte[r.nextInt(sizeMax-sizeMin)+sizeMin];
             r.nextBytes(change.contents);
             change.delay = delay;
             return change;
+        }
+
+        public String changeMessage() {
+            return null;
+        }
+    }
+
+    Map<String, byte[]> finalContents = new HashMap<>();
+    void applyChange(FileChange change) {
+        synchronized (finalContents) {
+            if(change.create) {
+                finalContents.put(change.path, change.contents);
+            }
         }
     }
 
@@ -175,45 +198,83 @@ public class TestRunner {
         env.getLogger().log(Level.INFO, String.format("I am user number %d", usernumber));
         Random r = new Random(100);
         int users = env.getInfo().getPeers().size();
-        changes.add(FileChange.randomCreate(r, 5000, users));
-        changes.add(FileChange.randomCreate(r, 10000, users));
-        changes.add(FileChange.randomCreate(r, 10000, users));
-//        changes.add(FileChange.randomCreate(r, 10000, users));
-//        changes.add(FileChange.randomCreate(r, 10000, users));
-//        changes.add(FileChange.randomCreate(r, 10000, users));
-//        changes.add(FileChange.randomCreate(r, 10000, users));
-//        changes.add(FileChange.randomCreate(r, 20000, users));
-//        changes.add(FileChange.randomCreate(r, 20000, users));
-//        changes.add(FileChange.randomCreate(r, 20000, users));
-//        changes.add(FileChange.randomCreate(r, 20000, users));
-//        changes.add(FileChange.randomCreate(r, 20000, users));
-//        changes.add(FileChange.randomCreate(r, 20000, users));
-//        changes.add(FileChange.randomCreate(r, 20000, users));
-//        changes.add(FileChange.randomCreate(r, 20000, users));
+        long startTime = System.currentTimeMillis();
+        long lastChange = startTime;
+        long waitAfterChangesMin = 10000;
+        long waitPerChange = 10000;
+        long waitAfterCheck = 10000;
+        int changeCycle = 0;
+        Thread.sleep(10000);
+        while(true) {
+            int changeCount = 1 + changeCycle*5;
+            for (int i = 0; i < changeCount; i++) {
+                FileChange change = FileChange.randomCreate(
+                        r,
+                        5000,
+                        0,
+                        2000 + (int)(Math.pow(2, changeCycle)*2000),
+                        users
+                );
+                applyChange(change);
+                lastChange += change.delay;
+                long startChangeAt = lastChange;
 
-        for (FileChange change : changes) {
-            if(usernumber==change.userNumber) {
+                if(usernumber==change.userNumber) {
+                    new Thread(() -> {
+                        try {
+                            long diff = startChangeAt - System.currentTimeMillis();
+                            if(diff>0)
+                            Thread.sleep(diff);
+                            if(change.create) {
+                                SyncManager sm = env.getSyncManager();
+                                File path = Paths.get(localPath, change.path).toFile();
+                                path.createNewFile();
+                                path.deleteOnExit();
+                                FileUtils.writeByteArrayToFile(path, change.contents);
+                                sm.addFile(path.getPath());
+                            }
+                        } catch(Exception e) {
+                            env.getLogger().log(Level.INFO, "Error doing change", e);
+                        }
+                    }).start();
+                }
+            }
+            lastChange += waitAfterChangesMin + waitPerChange*changeCount;
+            long diff = lastChange - System.currentTimeMillis();
+            if(usernumber==0) {
+                env.getLogger().trigger("print",
+                        String.format("Waiting %d seconds for changes to propagate", (int)(diff/1000)));
+                long finalLastChange = lastChange;
                 new Thread(() -> {
                     try {
-                        Thread.sleep(change.delay);
-                        if(change.create) {
-                            SyncManager sm = env.getSyncManager();
-                            File path = Paths.get(localPath, change.path).toFile();
-                            path.createNewFile();
-                            path.deleteOnExit();
-                            FileUtils.writeByteArrayToFile(path, change.contents);
-                            sm.addFile(path.getPath());
+                        Thread.sleep(10000);
+                        long remaining = finalLastChange - System.currentTimeMillis();
+                        while(remaining>10000){
+                            env.getLogger().trigger("print",
+                                    String.format("Remaining seconds %d", remaining / 1000));
+                            Thread.sleep(10000);
+                            remaining = finalLastChange - System.currentTimeMillis();
                         }
-                    } catch(Exception e) {
-                        env.getLogger().log(Level.INFO, "Error doing change", e);
+                    }catch(Exception e) {
+
                     }
                 }).start();
             }
+            if(diff>0) {
+                Thread.sleep(diff);
+            }
+            checkFinalState(env);
+            lastChange += waitAfterCheck;
+            diff = lastChange - System.currentTimeMillis();
+            if(usernumber==0) {
+                env.getLogger().trigger("print",
+                        String.format("Waiting %d seconds for next change cycle", (int)(diff/1000)));
+            }
+            if(diff>0) {
+                Thread.sleep(diff);
+            }
+            changeCycle++;
         }
-        Thread.sleep(180000);
-        checkFinalState(env);
-        env.getLogger().trigger("done");
-        Thread.sleep(200000);
 
     }
 
