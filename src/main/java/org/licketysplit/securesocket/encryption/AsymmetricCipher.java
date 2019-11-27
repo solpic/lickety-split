@@ -21,6 +21,18 @@ public class AsymmetricCipher {
         cipher.init(Cipher.ENCRYPT_MODE, key);
     }
 
+    public static PublicKey bytesToPublicKey(byte[] key) throws Exception {
+        X509EncodedKeySpec spec = new X509EncodedKeySpec(key);
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        return keyFactory.generatePublic(spec);
+    }
+
+    public static PrivateKey bytesToPrivateKey(byte[] key) throws Exception {
+        PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(key);
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        return keyFactory.generatePrivate(spec);
+    }
+
     public void setPrivateKey(byte[] keyBytes) throws Exception {
         PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(keyBytes);
         KeyFactory keyFactory = KeyFactory.getInstance("RSA");

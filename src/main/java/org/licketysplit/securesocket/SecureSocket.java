@@ -484,8 +484,9 @@ public class SecureSocket {
         messageWriterThread.start();
     }
 
-    public ReceivedMessage sendMessageAndWait(Message msg, Integer respondingTo) throws Exception {
+    public ReceivedMessage sendMessageAndWait(Message msg, Integer respondingTo, TimeoutException timeout, int timeoutTime) throws Exception {
         final ReceivedMessage[] response = new ReceivedMessage[1];
+        response[0] = null;
         Object lock = new Object();
         sendMessage(msg,
                 (ReceivedMessage m) -> {
@@ -497,15 +498,33 @@ public class SecureSocket {
                 }
                 , respondingTo);
         synchronized(lock) {
-            lock.wait();
+            if(timeoutTime>0) {
+                lock.wait(timeoutTime);
+                if(response[0]==null) {
+                    timeout.timeout();
+                    return null;
+                }
+            }else {
+                lock.wait();
+            }
             //log.log(Level.INFO, String.format("Unlocking for type: %s", response[0].getMessage().getClass().getName()));
         }
         return response[0];
     }
 
-    public ReceivedMessage sendMessageAndWait(Message msg) throws Exception {
+    public interface TimeoutException {
+        public void timeout() throws Exception;
+    }
+
+    public static TimeoutException timeoutFactory(String msg) {
+        return () -> {
+            throw new Exception(msg);
+        };
+    }
+
+    public ReceivedMessage sendMessageAndWait(Message msg, TimeoutException timeout, int timeoutTime) throws Exception {
         Integer respondingTo = -1;
-        return sendMessageAndWait(msg, respondingTo);
+        return sendMessageAndWait(msg, respondingTo, timeout, timeoutTime);
     }
 
     public void sendMessage(Message msg, MessageHandler handler, Integer respondingTo) throws Exception {

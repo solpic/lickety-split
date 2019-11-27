@@ -376,7 +376,7 @@ public class PeerInfoDirectory {
         peers = new HashMap<>();
         AsymmetricCipher cipher = new AsymmetricCipher();
         KeyPair keyPair = cipher.generateKeyPair();
-        rootKey = keyPair.getPrivate().getEncoded();
-        return keyPair.getPublic().getEncoded();
+        rootKey = keyPair.getPublic().getEncoded();
+        return keyPair.getPrivate().getEncoded();
     }
 }

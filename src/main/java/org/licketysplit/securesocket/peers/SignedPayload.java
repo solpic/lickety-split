@@ -3,6 +3,7 @@ package org.licketysplit.securesocket.peers;
 import org.licketysplit.securesocket.encryption.AsymmetricCipher;
 
 import java.security.MessageDigest;
+import java.security.Signature;
 import java.util.Random;
 
 public class SignedPayload {
@@ -38,13 +39,17 @@ public class SignedPayload {
     }
 
     public static class Verifier {
-        AsymmetricCipher cipher;
-        public Verifier(byte[] privateKey) throws Exception {
-            cipher = new AsymmetricCipher();
-            cipher.setPrivateKey(privateKey);
+        byte[] key;
+        public Verifier(byte[] key) throws Exception {
+            this.key = new byte[key.length];
+            for (int i = 0; i < key.length; i++) {
+                this.key[i] = key[i];
+            }
         }
 
         public void verify(SignedPayload signedPayload) throws Exception {
+            Signature sign = Signature.getInstance("SHA256withRSA");
+            sign.initVerify(AsymmetricCipher.bytesToPublicKey(key));
             byte[] payload = signedPayload.getPayload();
             byte[] salt = signedPayload.getSalt();
             byte[] totalPayload = new byte[payload.length+salt.length];
@@ -54,22 +59,28 @@ public class SignedPayload {
             for (int i = 0; i < salt.length; i++) {
                 totalPayload[i+payload.length] = salt[i];
             }
-
-            MessageDigest md = MessageDigest.getInstance("MD5");
-            md.update(totalPayload);
-            byte[] calculatedDigest = md.digest();
-            byte[] signedDigest = cipher.decrypt(signedPayload.getSignature());
-            for (int i = 0; i < calculatedDigest.length || i<signedDigest.length; i++) {
-                if(calculatedDigest[i]!=signedDigest[i]) throw new Exception();
+            sign.update(totalPayload);
+            if(!sign.verify(signedPayload.getSignature())) {
+                throw new Exception("Couldn't verify signed payload");
             }
+//
+//            MessageDigest md = MessageDigest.getInstance("MD5");
+//            md.update(totalPayload);
+//            byte[] calculatedDigest = md.digest();
+//            byte[] signedDigest = cipher.decrypt(signedPayload.getSignature());
+//            for (int i = 0; i < calculatedDigest.length || i<signedDigest.length; i++) {
+//                if(calculatedDigest[i]!=signedDigest[i]) throw new Exception();
+//            }
         }
     }
 
     public static class Signer {
-        AsymmetricCipher cipher;
-        public Signer(byte[] publicKey) throws Exception {
-            cipher = new AsymmetricCipher();
-            cipher.setPublicKey(publicKey);
+        byte[] key;
+        public Signer(byte[] key) throws Exception {
+            this.key = new byte[key.length];
+            for (int i = 0; i < key.length; i++) {
+                this.key[i] = key[i];
+            }
         }
 
         public SignedPayload sign(byte[] payload) throws Exception {
@@ -88,11 +99,18 @@ public class SignedPayload {
             for (int i = 0; i < salt.length; i++) {
                 totalPayload[i+payload.length] = salt[i];
             }
-            MessageDigest md = MessageDigest.getInstance("MD5");
-            md.update(totalPayload);
-            buffer.setSignature(cipher.encrypt(md.digest()));
 
+            Signature sign = Signature.getInstance("SHA256withRSA");
+            sign.initSign(AsymmetricCipher.bytesToPrivateKey(key));
+            sign.update(totalPayload);
+            byte[] signature = sign.sign();
+            buffer.setSignature(signature);
             return buffer;
+//            MessageDigest md = MessageDigest.getInstance("MD5");
+//            md.update(totalPayload);
+//            buffer.setSignature(cipher.encrypt(md.digest()));
+//
+//            return buffer;
         }
     }
 }
