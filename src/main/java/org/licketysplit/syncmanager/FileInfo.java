@@ -83,6 +83,8 @@ public class FileInfo {
         this.length = info.getLong("length");
         this.timeStamp = info.getLong("timeStamp");
         this.deleted = info.getBoolean("deleted");
-        this.md5 = info.getString("md5");
+        if(!this.deleted && info.has("md5"))
+            this.md5 = info.getString("md5");
+        else this.md5 = null;
     }
 }

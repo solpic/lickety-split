@@ -7,11 +7,14 @@ import org.apache.commons.io.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.licketysplit.env.Environment;
+import org.licketysplit.filesharer.DownloadManager;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Date;
+import java.util.Map;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 
 public class FileManager {
 
@@ -27,7 +30,49 @@ public class FileManager {
 
     public void initializeFiles(String username){
         this.initializeConfigs(username);
-        this.initializeManifest();
+    }
+
+    DownloadChanged downloadChanged = null;
+    Object downloadChangedLock = new Object();
+
+    public void setDownloadChanged(DownloadChanged c) {
+        synchronized (downloadChangedLock) {
+            downloadChanged = c;
+        }
+    }
+
+    public void triggerDownloadUpdate(FileInfo info) {
+        synchronized (downloadChangedLock) {
+            if(downloadChanged!=null) {
+                downloadChanged.changed(info);
+            }
+        }
+    }
+
+    public interface DownloadChanged {
+        void changed(FileInfo info);
+    }
+
+    public interface ManifestChanged {
+        void changed();
+    }
+
+    ManifestChanged guiChanges = null;
+    Object guiChangesLock = new Object();
+    public void setChangeHandler(ManifestChanged c) {
+        synchronized (guiChangesLock) {
+            guiChanges = c;
+        }
+    }
+
+    public boolean triggerGUIChanges() {
+        synchronized (guiChangesLock) {
+            if(guiChanges!=null) {
+                guiChanges.changed();
+                return true;
+            }
+            return false;
+        }
     }
 
     private void initializeConfigs(String username) {
@@ -40,7 +85,7 @@ public class FileManager {
             ConfigsInfo info = new ConfigsInfo(username);
             writer.writeJSONObject(new JSONObject(info.toString()));
         } catch(IOException e){
-            e.printStackTrace();
+            env.log("Init error", e);
         }
     }
 
@@ -54,7 +99,7 @@ public class FileManager {
             writer.writeJSONObject(manifestObj);
 
         } catch(IOException e){
-            e.printStackTrace();
+            env.log("Init manifest error", e);
         }
     }
 
@@ -88,38 +133,103 @@ public class FileManager {
 //        return "";
     }
 
+    public static class FileStatus {
+        public boolean hasFile = false;
+        public boolean fileCorrupted = false;
+        public boolean isDownloading = false;
+        public float downloadProgress = 0.0f;
+        public float downloadSpeed = 0.0f;
+        public String name;
+        public float size;
+        public boolean deleted = false;
+    }
+
+    public FileStatus getFileStatus(FileInfo info) throws Exception {
+        FileStatus fileStatus = new FileStatus();
+        fileStatus.name = info.name;
+        String name = info.name;
+        DownloadManager downloadManager = env.getFS().currentProgress(name);
+        if(downloadManager!=null) {
+            fileStatus.isDownloading = true;
+            fileStatus.downloadProgress = downloadManager.getProgress();
+            fileStatus.downloadSpeed = downloadManager.getSpeed();
+            fileStatus.size = downloadManager.getFileAssembler().totalChunks.get()*DownloadManager.chunkLengthRaw;
+            return fileStatus;
+        }
+        JSONObject manifest = env.getFM().getManifest();
+        Map entry = (Map)manifest.getJSONArray("files").toList()
+                .stream()
+                .filter(e -> ((Map)e).get("name").equals(info.name))
+                .collect(Collectors.toList())
+                .get(0);
+
+
+
+        File file = new File(env.getFM().getSharedDirectoryPath(name));
+        fileStatus.size = (Integer)entry.get("length");
+        fileStatus.deleted = (Boolean)entry.get("deleted");
+        if(file.exists()) {
+            fileStatus.hasFile = true;
+
+            try {
+                String md5 = env.getSyncManager().getMD5(file);
+                if (!md5.equals(entry.get("md5"))) {
+                    fileStatus.fileCorrupted = true;
+                    file.delete();
+                    fileStatus.hasFile = false;
+                    fileStatus.fileCorrupted = false;
+                }
+            } catch(Exception e) {
+                env.getLogger().log(Level.INFO,
+                        "Error checking md5",
+                        e);
+                fileStatus.fileCorrupted = true;
+            }
+        }
+        return fileStatus;
+    }
+
     //For constructing the file, the file name is the folder and the parts are the file
     public String getTempDirectoryPath(String directoryName, String fileName) {
         return this.env.getTempDirectory(directoryName, fileName);
     }
 
     public JSONObject getManifest() throws IOException {
-        File manifest = new File(this.getConfigsPath(".manifest.txt"));
-        try {
-            if(!manifest.exists()||FileUtils.readFileToString(manifest, "UTF-8").equals("")) {
-                env.log("WRITING NEW MANIFEST");
-                FileUtils.writeStringToFile(manifest, "{\"files\":[]}", "UTF-8");
-            }
+        synchronized(manifestLock) {
+            File manifest = new File(this.getConfigsPath(".manifest.txt"));
+            try {
+                if (!manifest.exists() || FileUtils.readFileToString(manifest, "UTF-8").equals("")) {
+                    env.log("WRITING NEW MANIFEST");
+                    FileUtils.writeStringToFile(manifest, "{\"files\":[]}", "UTF-8");
+                }
                 JsonToFile writer = new JsonToFile(manifest);
                 return writer.getJSONObject();
-        } catch(Exception e) {
-            String manifestStr = FileUtils.readFileToString(manifest, "UTF-8");
-            env.getLogger().log(Level.INFO,
-                    String.format("Exception getting manifest, contents '%s'", manifestStr), e);
-            throw e;
+            } catch (Exception e) {
+                String manifestStr = FileUtils.readFileToString(manifest, "UTF-8");
+                env.getLogger().log(Level.INFO,
+                        String.format("Exception getting manifest, contents '%s'", manifestStr), e);
+                System.exit(1);
+                //FileUtils.writeStringToFile(manifest, "{\"files\":[]}", "UTF-8");
+                try {
+                    JsonToFile writer = new JsonToFile(manifest);
+                    return writer.getJSONObject();
+                } catch (Exception e2) {
+                    throw e2;
+                }
+            }
         }
     }
 
     Object manifestLock = new Object();
     public boolean autoDownloadNewFiles = false;
     public boolean autoDownloadUpdates = false;
-    public boolean syncManifests(JSONObject theirManifest) throws IOException {
+    public boolean syncManifests(JSONObject theirManifest, String theirUsername) throws IOException {
         synchronized (manifestLock) {
-            //env.log("Syncing manifest");
+            env.log("Syncing manifest");
             JSONArray theirFiles = theirManifest.getJSONArray("files");
             JSONArray yourFiles = this.getManifest().getJSONArray("files");
-            String theirManifestOriginal = theirManifest.toString();
-            String yourManifestOriginal = this.getManifest().toString();
+            String theirManifestOriginal = theirManifest.toString(4);
+            String yourManifestOriginal = this.getManifest().toString(4);
             int theirLen = theirFiles.length();
             int yourLen = yourFiles.length();
             boolean changed = false;
@@ -158,7 +268,11 @@ public class FileManager {
             JsonToFile writer = new JsonToFile(manifest);
             theirManifest.put("files", yourFiles);
             writer.writeJSONObject(theirManifest);
-//            env.log(String.format("Synced manifest\n\tOriginal: %s\n\tTheirs: %s\n\tFinal:%s\n\tChanged?: %b", yourManifestOriginal, theirManifestOriginal, theirManifest.toString(), changed));
+                env.log(String.format("Synced manifest with %s, changed? %b\n\tOriginal: %s\n\tTheirs: %s\n\tFinal:%s",
+                        changed,
+                        theirUsername,
+                        yourManifestOriginal,
+                        theirManifestOriginal, theirManifest.toString(4)));
             return changed;
         }
     }
@@ -190,7 +304,7 @@ public class FileManager {
 
             return info;
         } catch (IOException e) {
-            e.printStackTrace();
+            env.log("Add file error", e);
         }
 
         return info;
@@ -202,32 +316,16 @@ public class FileManager {
             File manifest = new File(this.getConfigsPath(".manifest.txt"));
             JsonToFile writer = new JsonToFile(manifest);
             JSONObject files = writer.getJSONObject();
+
             JSONArray filesArray = files.getJSONArray("files");
-            filesArray.put(new JSONObject(fileInfo));
+            filesArray = this.replace(fileInfo, filesArray);
+            files.put("files", filesArray);
             writer.writeJSONObject(files);
         }
     }
 
     private void addFileToFolder(File source, File dest) throws IOException {
         FileUtils.copyFile(source, dest);
-    }
-
-    //Updates file in manifest and in folder
-    public void updateFile(String fileNameWithPath){
-        Path path = Paths.get(fileNameWithPath);
-        File newFile = new File(path.toString());
-        File oldFile = new File(this.env.getDirectory(path.getFileName().toString()));
-        FileInfo info = new FileInfo(newFile, new Date().getTime());
-        try {
-            this.updateFileInManifest(info);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        try {
-            this.addFileToFolder(newFile, oldFile); // Hopefully this works...
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 
 
@@ -246,27 +344,36 @@ public class FileManager {
             files.put("files", filesArray);
             writer.writeJSONObject(files);
         }
+        triggerGUIChanges();
     }
 
     public void deleteFileFromFolderIfExists(String fileNameWithPath) throws IOException {
-        if(new File(fileNameWithPath).exists()) FileUtils.forceDelete(new File(fileNameWithPath));
+        if(new File(fileNameWithPath).exists()) {
+            FileUtils.forceDelete(new File(fileNameWithPath));
+        }
+        triggerGUIChanges();
     }
 
     //replace old fileInfo with new fileInfo (info)
     private JSONArray replace(FileInfo info, JSONArray arr){
         JSONArray newArr = new JSONArray();
         int len = arr.length();
+        boolean hasPut = false;
         if (arr != null) {
             for (int i=0;i<len;i++)
             {
                 //If names are equal then replace with new file info
                 if (new JSONObject(arr.get(i).toString()).getString("name").equals(info.getName()))
                 {
+                    hasPut = true;
                     newArr.put(new JSONObject(info));
                 } else {
                     newArr.put(new JSONObject(arr.get(i).toString()));
                 }
             }
+        }
+        if(!hasPut) {
+            newArr.put(new JSONObject(info));
         }
         return newArr;
     }
@@ -280,6 +387,7 @@ public class FileManager {
         } catch(Exception e) {
             env.getLogger().log(Level.INFO, "Error updating file", e);
         }
+        triggerGUIChanges();
     }
     public void addFileHandler(FileInfo fileInfo) {
         try {
@@ -290,6 +398,7 @@ public class FileManager {
         } catch(Exception e) {
             env.getLogger().log(Level.INFO, "Error adding file", e);
         }
+        triggerGUIChanges();
     }
 
     public void fileUpdatedNotification(FileInfo fileInfo) throws Exception{
@@ -297,7 +406,7 @@ public class FileManager {
         try {
 //                    fS.downloadFrom(conn, fileInfo.getName());
         } catch (Exception e) {
-            e.printStackTrace();
+            env.log("Update error", e);
         }
         updateFileHandler(fileInfo);
     }
@@ -307,7 +416,7 @@ public class FileManager {
         try {
           //  fS.download(fileInfo);
         } catch (Exception e) {
-            e.printStackTrace();
+            env.log("Add file error", e);
         }
         addFileHandler(fileInfo);
     }

@@ -32,8 +32,8 @@ public class EC2Test {
         testHarness.allLogs = allLogs;
         testHarness.testStatusLogger = testStatus;
         ConcurrentHashMap<String, String> hasFiles = new ConcurrentHashMap<>();
-        int remoteCount = 0;
-        int localCount = 5;
+        int remoteCount = 5;
+        int localCount = 0;
         AtomicInteger running = new AtomicInteger(remoteCount + localCount);
         Debugger.global().setTrigger("count", (Object ...args) -> {
             running.decrementAndGet();
@@ -46,8 +46,35 @@ public class EC2Test {
                 }
             }
         });
-        TestHarness.P2PTestInfo results = testHarness.generateNetwork(remoteCount, localCount, shouldRedeploy(), localThreaded());
+        testHarness.cleanAllRunning();
+        TestHarness.P2PTestInfo results = testHarness.generateNetwork(remoteCount, localCount, "peerstart", shouldRedeploy(), localThreaded(), false);
         assertEquals(running.get(), 0);
+    }
+
+    @Test
+    public void deployTestNetwork() throws Exception {
+        TestHarness testHarness = new TestHarness();
+        P2PTestInfo hackMaster = new P2PTestInfo();
+        Logger allLogs = TestHarness.fileOnlyLogger("allLogs", Paths.get("everything.log").toString());
+        Logger testStatus = TestHarness.fileAndConsoleLogger("testStatus", Paths.get("test-results.log").toString());
+        testHarness.allLogs = allLogs;
+        testHarness.testStatusLogger = testStatus;
+        ConcurrentHashMap<String, String> hasFiles = new ConcurrentHashMap<>();
+        int remoteCount = 5;
+        testHarness.cleanAllRunning();
+        TestHarness.P2PTestInfo results = testHarness.generateNetwork(remoteCount, 1, "headless", shouldRedeploy(), localThreaded(), true);
+    }
+
+    @Test
+    public void logDownloader() throws Exception {
+        TestHarness testHarness = new TestHarness();
+        testHarness.logDownloader();
+    }
+
+    @Test
+    public void cleanAllRunning() throws Exception {
+        TestHarness testHarness = new TestHarness();
+
     }
 
     @Test

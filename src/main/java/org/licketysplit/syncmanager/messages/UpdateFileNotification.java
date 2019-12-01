@@ -41,7 +41,6 @@ public class UpdateFileNotification extends JSONMessage {
                 fm.fileUpdatedNotification(fileInfo);
             } catch(Exception e){
                 env.getLogger().log(Level.INFO, "Update file", e);
-                e.printStackTrace();
             }
         }
     }

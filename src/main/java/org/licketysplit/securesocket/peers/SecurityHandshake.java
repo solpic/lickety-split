@@ -3,6 +3,8 @@ package org.licketysplit.securesocket.peers;
 import org.licketysplit.securesocket.messages.JSONMessage;
 import org.licketysplit.securesocket.messages.Message;
 
+import java.util.Random;
+
 public class SecurityHandshake {
     public static class SendPublicKeyMessage extends JSONMessage {
         byte[] key;

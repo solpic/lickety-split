@@ -5,6 +5,7 @@ import org.licketysplit.env.Environment;
 import org.licketysplit.securesocket.messages.*;
 
 import java.io.IOException;
+import java.util.logging.Level;
 
 public class UpdateManifestRequest extends Message {
     public JSONObject manifest;
@@ -34,19 +35,21 @@ public class UpdateManifestRequest extends Message {
             JSONObject theirManifest = updateManifestRequest.manifest;
             try {
                 JSONObject yourManifest = env.getFM().getManifest();
-                boolean changed = env.getFM().syncManifests(theirManifest);
+                String theirUsername = "unknown";
+                try {
+                    theirUsername = m.getConn().getPeerAddress().getUser().getUsername();
+                }catch(Exception e) {}
+                boolean changed = env.getFM().syncManifests(theirManifest, theirUsername);
                 m.getConn().sendFirstMessage(new UpdateManifestResponse(yourManifest), null);
 
                 if(changed) {
-//                    env.log("Changes, propagating manifest");
+                    env.log("Changes, propagating manifest");
                     env.getSyncManager().syncManifests(m.getConn().getPeerAddress().getUser().getUsername());
                 }else{
-//                    env.log("No manifest changes");
+                    env.log("No manifest changes");
                 }
-            } catch (IOException e) {
-                e.printStackTrace();
             } catch (Exception e) {
-                e.printStackTrace();
+                env.getLogger().log(Level.INFO, "Error during manifest sync", e);
             }
         }
     }

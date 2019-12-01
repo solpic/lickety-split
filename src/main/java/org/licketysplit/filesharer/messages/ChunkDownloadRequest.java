@@ -26,12 +26,11 @@ public class ChunkDownloadRequest extends JSONMessage {
             String requestedFileName = chunkDownloadRequest.fileInfo.getName();
             int chunk = chunkDownloadRequest.chunk;
             Environment env = m.getEnv();
-            env.getLogger().log(Level.INFO, "SENDING CHUNK " + chunk + " ");
             String requestedFileLocation = env.getDirectory(requestedFileName);
             try {
-                m.respond(new ChunkDownloadResponse(requestedFileLocation, chunk), null);
+                m.respond(new ChunkDownloadResponse(requestedFileLocation, chunk, env), null);
             }catch (Exception e) {
-                e.printStackTrace();
+                env.log("Error serving download", e);
             }
         }
     }

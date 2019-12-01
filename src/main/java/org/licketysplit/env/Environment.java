@@ -8,8 +8,15 @@ import org.licketysplit.securesocket.peers.UserInfo;
 import org.licketysplit.syncmanager.FileManager;
 import org.licketysplit.syncmanager.SyncManager;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 public class Environment {
     public PeerManager getPm() {
@@ -105,11 +112,38 @@ public class Environment {
         this.syncManager = syncManager;
     }
 
+    public ChangeHandler changes;
     public Environment(UserInfo userInfo, PeerManager pm, boolean debugEnabled) {
         this.userInfo = userInfo;
         this.pm = pm;
         logger = new EnvLogger(userInfo.getUsername());
         this.debug = new Debugger(debugEnabled);
+        this.changes = new ChangeHandler();
+
+    }
+
+    public static class ChangeHandler {
+        public interface Change {
+            void update(Object arg);
+        }
+
+        ConcurrentHashMap<String, Change> changes;
+        ChangeHandler() {
+            changes = new ConcurrentHashMap<>();
+        }
+
+        public void runHandler(String name, Object arg) {
+            Change change = changes.get(name);
+            if(change!=null) {
+                change.update(arg);
+            }
+        }
+
+        public void setHandler(String name, Change change) {
+            synchronized (changes) {
+                changes.put(name, change);
+            }
+        }
     }
 
     public void setFS(FileSharer fS){
@@ -128,6 +162,9 @@ public class Environment {
         return this.fM;
     }
 
+    public void log(String s, Exception e) {
+        getLogger().log(s, e);
+    }
 
     public EnvLogger getLogger() {
         return logger;

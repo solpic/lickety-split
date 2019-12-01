@@ -23,7 +23,9 @@ public class FileAssembler implements Runnable{
     private IsFinished isFinished;
 
     public File downloadToPath;
-    public FileAssembler(FileInfo fileInfo, Environment env, int lengthInChunks, IsFinished isFinished) throws IOException {
+    DownloadManager mgr;
+    public FileAssembler(FileInfo fileInfo, Environment env, int lengthInChunks, IsFinished isFinished, DownloadManager mgr) throws IOException {
+        this.mgr = mgr;
         this.env = env;
         this.fileInfo = fileInfo;
         this.lengthInChunks = lengthInChunks;
@@ -51,27 +53,35 @@ public class FileAssembler implements Runnable{
             return -1;
         }
     }
+    public AtomicLong totalChunks = new AtomicLong(0);
+    public AtomicLong chunksDownloaded = new AtomicLong(0);
+    public int chunkSize() {
+        return DownloadManager.chunkLengthRaw;
+    }
     @Override
     public void run() {
         try {
             lastChunkWritten = new AtomicLong(-1);
+            totalChunks.set(lengthInChunks);
+            chunksDownloaded.set(0);
             Chunk chunk;
             //consuming messages until exit message is received
             while (true) {
-                env.log("Taking chunk");
                 chunk = this.chunks.take();
-                env.log("Took chunk");
                 if (chunk != null) {
                     if(chunk.chunk == -1) return; //Download canceled
                     if(!this.completed.contains(chunk.chunk)) {
-                        this.file.seek(chunk.chunk * 1024);
-                        this.file.write(chunk.bytes);
-                        this.completed.add(chunk.chunk);
-                        this.numOfChunks++;
-                        lastChunkWritten.set(System.currentTimeMillis());
-                        env.log("CURRENT " + this.numOfChunks + " GOAL: " + this.lengthInChunks);
-                    } else{
-                        env.log("DUPLICATE");
+                        if(chunk.bytes!=null) {
+                            this.file.seek(chunk.chunk * DownloadManager.chunkLengthRaw);
+                            this.file.write(chunk.bytes);
+                            this.completed.add(chunk.chunk);
+                            this.numOfChunks++;
+                            chunksDownloaded.set(this.numOfChunks);
+                            lastChunkWritten.set(System.currentTimeMillis());
+                            this.mgr.changed();
+                        }else{
+                            env.log("Chunk has null bytes");
+                        }
                     }
                 }
                 if(this.chunks.isEmpty() && this.numOfChunks == this.lengthInChunks){
@@ -90,7 +100,7 @@ public class FileAssembler implements Runnable{
                 }
             }
         } catch (InterruptedException | IOException e) {
-            e.printStackTrace();
+            env.log("Error during assembler", e);
         }
     }
 

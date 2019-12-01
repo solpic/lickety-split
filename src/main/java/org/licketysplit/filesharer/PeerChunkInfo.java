@@ -14,7 +14,7 @@ public class PeerChunkInfo {
 
     public PeerChunkInfo(File file, FileInfo fileInfo){
          this.fileInfo = fileInfo;
-         double chunkSize = 1024;
+         double chunkSize = DownloadManager.chunkLengthRaw;
          double preciseChunks = file.length() / chunkSize;
          int chunks;
          if(fileInfo.getLength() == file.length()) chunks = (int) Math.ceil(preciseChunks);

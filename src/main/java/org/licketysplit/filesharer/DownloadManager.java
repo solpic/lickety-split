@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 
@@ -45,7 +46,7 @@ public class DownloadManager implements Runnable {
         this.isFinished = new AtomicBoolean(false);
         this.isCanceled = new AtomicBoolean(false);
         this.isFinished.set(false);
-        this.fileAssembler = new FileAssembler(fileInfo, env, this.getLengthInChunks(fileInfo), isFinished);
+        this.fileAssembler = new FileAssembler(fileInfo, env, this.getLengthInChunks(fileInfo), isFinished, this);
         this.assemblingThread = new Thread(fileAssembler);
         this.downloadToPath = fileAssembler.downloadToPath;
         this.assemblingThread.start();
@@ -58,10 +59,69 @@ public class DownloadManager implements Runnable {
         this.completedChunks = new ArrayList<Integer>();
     }
 
+    float speed = 0.0f;
+    Object speedLock = new Object();
+    public float getSpeed() {
+        synchronized (speedLock) {
+            return speed;
+        }
+    }
+
+    void setSpeed(float f) {
+        synchronized (speedLock) {
+            speed = f;
+        }
+    }
+
+    float progress = 0.0f;
+    Object progressLock = new Object();
+    public float getProgress() {
+        synchronized (progressLock) {
+            return progress;
+        }
+    }
+
+    public void setProgress(float p) {
+        synchronized (progressLock) {
+            progress = p;
+        }
+    }
+
+
+    public void changed() {
+
+    }
+
     void startProgressWatcher() {
         int waitPeriod = 10000;
         int stopAfterTime = 30000;
         String fname = fileAssembler.getFileInfo().getName();
+        new Thread(() -> {
+            int sleepTime = 1000;
+            if(!env.getFM().triggerGUIChanges()) sleepTime = 2000;
+            while(!isFinished.get() && !isCanceled.get()) {
+                try {
+                    long chunksDownloadedInitial = fileAssembler.chunksDownloaded.get();
+                    Thread.sleep(sleepTime);
+                    long chunksDownloaded = fileAssembler.chunksDownloaded.get();
+                    long totalChunks = fileAssembler.totalChunks.get();
+
+                    float progress = (float)chunksDownloaded/(float)totalChunks;
+                    float speed = (float)((chunksDownloaded-chunksDownloadedInitial)*fileAssembler.chunkSize()*1000.0f)/((float)sleepTime);
+                    setProgress(progress);
+                    setSpeed(speed);
+                    env.log(String.format(
+                            "Download progress for '%s': %f%%, speed: %f KB/s",
+                            fname, progress*100, speed/1024.0
+                    ));
+                    env.getFM().triggerDownloadUpdate(fileAssembler.getFileInfo());
+                } catch(Exception e) {
+                    env.getLogger().log(Level.INFO,
+                            "Exception in progress watcher for "+fname, e);
+                }
+            }
+            env.getFM().triggerGUIChanges();
+        }).start();
         new Thread(() -> {
             long lastChunkWritten = System.currentTimeMillis();
             while(!isFinished.get() && !isCanceled.get()) {
@@ -79,8 +139,6 @@ public class DownloadManager implements Runnable {
                         env.log("Failing "+fname+" because stopped");
                         failBecauseStopped();
                         return;
-                    }else{
-                        env.log(fname+" download is good");
                     }
                 } catch(Exception e) {
                     env.getLogger().log(Level.INFO,
@@ -103,7 +161,10 @@ public class DownloadManager implements Runnable {
             UserInfo user;
             int chunk;
             env.getLogger().log(Level.INFO, "Starting download manager thread");
-            long updateTime = System.currentTimeMillis()+5000;
+            long updateTime = System.currentTimeMillis()+15000;
+            pendingChunks = new ConcurrentHashMap<>();
+            pendingCount = new AtomicLong(0);
+            int counter = 0;
             while(!isFinished.get() && !isCanceled.get()) {
                 if ((user = this.getFreeUser()) != null) {
                     peer = this.getPeers().get(user);
@@ -112,19 +173,35 @@ public class DownloadManager implements Runnable {
                         this.remove(chunk);
                         this.addToCompleted(chunk);
                         this.sendDownloadRequest(chunk, user, peer);
-                        updateTime += 5000;
+                        counter++;
+                    }
+                }
+                int maxPending = 1000;
+                int chunkCancelMilliseconds = 10000;
+                if(pendingCount.get()>maxPending) {
+                    Thread.sleep(5000);
+                }
+                boolean changed = false;
+                Set<Map.Entry<Integer, Long>> entries = pendingChunks.entrySet();
+                long curTime = System.currentTimeMillis();
+                for (Map.Entry<Integer, Long> entry : entries) {
+                    if(entry.getValue()+chunkCancelMilliseconds<curTime) {
+                        changed = true;
+                        this.getNecessaryAndAvailableChunks().remove(entry.getKey());
+                        this.pendingChunks.remove(entry.getKey());
+                        this.pendingCount.set(pendingChunks.size());
                     }
                 }
 
                 if (System.currentTimeMillis()>updateTime) {
                     this.updatePeerList();
-                    updateTime = System.currentTimeMillis()+5000;
+                    updateTime = System.currentTimeMillis()+15000;
                 }
             }
             env.log(String.format("Download manager done, finished: %b, Cancelled: %b", isFinished.get(), isCanceled.get()));
             this.finish();
         } catch(Exception e){
-            e.printStackTrace();
+            env.log("Error during download manager", e);
         }
     }
 
@@ -148,8 +225,10 @@ public class DownloadManager implements Runnable {
         return shuffledList.get(new Random(System.currentTimeMillis()).nextInt(shuffledList.size()));
     }
 
+    public static final int chunkLengthRaw = 1024*500;
+
     private int getLengthInChunks(FileInfo fileInfo){
-        double chunkLength = 1024.0;
+        double chunkLength = chunkLengthRaw;
         double preciseChunks = fileInfo.getLength() / chunkLength;
         return (int) Math.ceil(preciseChunks);
     }
@@ -163,7 +242,6 @@ public class DownloadManager implements Runnable {
             //env.getLogger().log(String.format("Peer %s has NO chunks", userInfo.getUsername()));
             return;
         }
-        env.getLogger().log(String.format("Peer %s has chunk", userInfo.getUsername()));
         this.peers.put(userInfo, new PeerDownloadInfo(peerInfo, socket)); //TODO(will) check if possible
         this.updateAvailableChunks(peerInfo);
         this.makeUserAvailable(userInfo);
@@ -177,8 +255,13 @@ public class DownloadManager implements Runnable {
         this.necessaryAndAvailableChunks.remove(Integer.valueOf(chunk));
     }
 
+    ConcurrentHashMap<Integer, Long> pendingChunks;
+    AtomicLong pendingCount;
+
     public void addToCompleted(int chunk){
         this.completedChunks.add(chunk);
+        this.pendingChunks.put(chunk, System.currentTimeMillis());
+        pendingCount.set(pendingChunks.size());
     }
 
     public ArrayList<Integer> getCompletedChunks(){
@@ -194,23 +277,26 @@ public class DownloadManager implements Runnable {
     }
 
     public void updatePeerList() throws Exception {
+        env.log("Updating peer list for download");
         ConcurrentHashMap<UserInfo, SecureSocket> peers = this.env.getPm().getPeers();
         Set<UserInfo> newPeers = new HashSet<UserInfo>(peers.keySet());
         Set<UserInfo> currPeers = new HashSet(this.getPeers().keySet());
         newPeers.removeAll(currPeers);
         ArrayList<UserInfo> newPeersLs = new ArrayList<UserInfo>(newPeers);
-        for (UserInfo peer: newPeersLs) {
+        for (UserInfo peer: peers.keySet()) {
             peers.get(peer).sendFirstMessage(new ChunkAvailabilityRequest(this.fileAssembler.getFileInfo()), new FileSharer.ChunkAvailabilityRequestHandler(this, peer));
         }
     }
 
     public void sendDownloadRequest(int chunk, UserInfo userInfo, PeerDownloadInfo peer) throws Exception {
-        env.log(String.format("Requesting chunk %d from %s", chunk, peer.getSocket().getPeerAddress().getUser().getUsername()));
+        //env.log(String.format("Requesting chunk %d from %s", chunk, peer.getSocket().getPeerAddress().getUser().getUsername()));
         peer.getSocket().sendFirstMessage(new ChunkDownloadRequest(this.fileAssembler.getFileInfo(), chunk), new ChunkDownloadRequestHandler(chunk,  this, userInfo)); //need to close request and remove chunk
     }
 
     public void onChunkCompleted(int chunk, UserInfo userInfo) throws Exception {
         this.makeUserAvailable(userInfo);
+        this.pendingChunks.remove(chunk);
+        this.pendingCount.set(pendingChunks.size());
     }
 
     public void updateAvailableChunks(PeerChunkInfo peerChunkInfo){
@@ -244,11 +330,12 @@ public class DownloadManager implements Runnable {
 
         @Override
         public void handle(ReceivedMessage m) throws Exception {
-            m.getEnv().log("Received chunk response");
+//            m.getEnv().log("Received chunk response");
             //If error add chunk back to availableChunks.
             ChunkDownloadResponse decodedMessage = m.getMessage();
             if(this.dManager.isFinished()) return;
             this.dManager.getFileAssembler().saveChunk(decodedMessage.data, this.chunk);
+            m.getEnv().getDebug().trigger("chunk", decodedMessage.data, this.chunk, m.getConn());
             this.dManager.onChunkCompleted(this.chunk, this.userInfo);
         }
     }
@@ -273,6 +360,8 @@ public class DownloadManager implements Runnable {
         }else{
             env.getLogger().log("File download cancelled");
         }
+
+        env.getFM().triggerDownloadUpdate(fileAssembler.getFileInfo());
         synchronized (doneLock) {
             doneLock.notifyAll();
         }

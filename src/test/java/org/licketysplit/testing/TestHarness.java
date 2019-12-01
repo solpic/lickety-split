@@ -183,6 +183,7 @@ public class TestHarness {
 
 
     void upload(String host, String[] sources, String[] destinations) throws Exception {
+        testStatusLogger.log(Level.INFO, "Uploading files to "+host);
         JSch jSch = new JSch();
         jSch.addIdentity(pemPath);
         jSch.setConfig("StrictHostKeyChecking", "no");
@@ -234,7 +235,7 @@ public class TestHarness {
         }
     }
 
-    void runSSH(String host, String cmd, boolean withTriggers) throws Exception {
+    void runSSH(String host, String cmd, boolean withTriggers, boolean useLog) throws Exception {
         JSch jsch = new JSch();
         jsch.addIdentity(pemPath);
         jsch.setConfig("StrictHostKeyChecking", "no");
@@ -248,7 +249,10 @@ public class TestHarness {
         BufferedReader br = new BufferedReader(new InputStreamReader(input, "UTF-8"));
         String line;
         while ((line = br.readLine()) != null) {
+            if(useLog)
             allLogs.log(Level.INFO, line);
+            else
+                System.out.println(line);
             if(withTriggers) {
                 Debugger.global().parseTrigger(line);
             }
@@ -256,7 +260,11 @@ public class TestHarness {
         channel.disconnect();
 //        session.disconnect();
 
-        testStatusLogger.log(Level.INFO, String.format("Done running %s on host %s", cmd, host));
+        if(useLog) {
+            testStatusLogger.log(Level.INFO, String.format("Done running %s on host %s", cmd, host));
+        }else{
+            System.out.println("Done running "+cmd+" on host "+host);
+        }
     }
 
 
@@ -315,6 +323,33 @@ public class TestHarness {
         }
     }
 
+    public void cleanAllRunning() throws Exception {
+        ec2 = AmazonEC2ClientBuilder.defaultClient();
+        List<Instance> instances = getInstances();
+        List<Instance> running = instances.stream().filter(e -> e.getState().getName().equals("running"))
+                .collect(Collectors.toList());
+        for (Instance instance : running) {
+            runSSH(instance.getPublicIpAddress(), "killall java8; rm -r ~/*", false, false);
+        }
+    }
+
+    public void logDownloader() throws Exception {
+
+        ec2 = AmazonEC2ClientBuilder.defaultClient();
+        List<Instance> instances = getInstances();
+        List<Instance> running = instances.stream().filter(e -> e.getState().getName().equals("running")).collect(Collectors.toList());
+        while(true) {
+            for (Instance instance : running) {
+                try {
+                    download(instance.getPublicIpAddress(), "log", Paths.get("test-data-root", "remote-logs", instance.getInstanceId() + ".log").toString());
+                }catch(Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            Thread.sleep(5000);
+        }
+    }
+
     public static class P2PTestInfo {
         public TestNetworkManager.TestNetworkDataInfo data;
         public String logFolder;
@@ -351,7 +386,11 @@ public class TestHarness {
 
     String jarPath = "C:\\Users\\Merrill\\Documents\\LicketySplit\\lickety-split\\target\\lickety-split-1.0-SNAPSHOT-jar-with-dependencies.jar";
     String jarDest = "p2p.jar";
-    P2PTestInfo createAndUploadFiles(long remoteCount, long localCount, boolean shouldRedeploy, boolean localThreaded) throws Exception {
+
+    public boolean dontDeployLocalGenerateBootstrapInstead = false;
+
+    P2PTestInfo createAndUploadFiles(long remoteCount, long localCount, String runcmd, boolean shouldRedeploy, boolean localThreaded
+    , boolean exitAfterStart) throws Exception {
         jarPath = System.getProperty("jarPath");
         String _testDataPath = "test-data";
         String _testingFolder = "test-data-root";
@@ -369,26 +408,7 @@ public class TestHarness {
         List<TestNetworkManager.PeerGenInfo> peers = new ArrayList<>();
         int peerNumber = 0;
         String rootUser;
-        if(remoteCount>0) {
-            List<Instance> instances = getInstances().stream()
-                    .filter(i -> i.getState().getName().equals("running"))
-                    .collect(Collectors.toList());
-            for (Instance instance : instances) {
-                if (peerNumber >= remoteCount) break;
-                String username = String.format("testuser-%d-remote", peerNumber);
-                peers.add(new TestNetworkManager.PeerGenInfo(
-                        username,
-                        instance.getPublicIpAddress(),
-                        listenPort,
-                        instance.getInstanceId(),
-                        peerNumber == 0,
-                        false,
-                        localThreaded
-                ));
-                if (peerNumber == 0) rootUser = username;
-                peerNumber++;
-            }
-        }
+
         int localPort = 15000;
         for (long i = 0; i < localCount; i++) {
             String username = String.format("testuser-%d-local", peerNumber);
@@ -404,6 +424,26 @@ public class TestHarness {
             localPort++;
             if(peerNumber==0) rootUser = username;
             peerNumber++;
+        }
+        if(remoteCount>0) {
+            List<Instance> instances = getInstances().stream()
+                    .filter(i -> i.getState().getName().equals("running"))
+                    .collect(Collectors.toList());
+            for (int i = 0; i < remoteCount; i++) {
+                Instance instance = instances.get(i);
+                String username = String.format("testuser-%d-remote", peerNumber);
+                peers.add(new TestNetworkManager.PeerGenInfo(
+                        username,
+                        instance.getPublicIpAddress(),
+                        listenPort,
+                        instance.getInstanceId(),
+                        peerNumber == 0,
+                        false,
+                        localThreaded
+                ));
+                if (peerNumber == 0) rootUser = username;
+                peerNumber++;
+            }
         }
 
 
@@ -437,8 +477,8 @@ public class TestHarness {
                 rootStr = "isroot=yes";
             }
             String cmd = String.format(
-                    "killall java8\nrm %s\n%s\njava8 -jar %s peerstart %s %s %s %s",
-                    jarDest, wgetCmd, jarDest, peer.username, peer.ip, Integer.toString(peer.port), rootStr
+                    "killall java8\nrm %s\n%s\njava8 -jar %s %s %s %s %s %s &",
+                    jarDest, wgetCmd, jarDest, runcmd,  peer.username, peer.ip, Integer.toString(peer.port), rootStr
             );
 
             String localPath = null;
@@ -448,13 +488,13 @@ public class TestHarness {
                 localDirFile.mkdir();
                 localPath = localDirFile.getPath();
                 cmd = String.format(
-                        "cd %s\n%s -jar %s peerstart %s %s %s %s",
+                        "cd %s\n%s -jar %s %s %s %s %s %s",
                         Paths.get(localDir).toAbsolutePath().toString(),
-                        "\"C:\\Program Files\\Java\\jdk1.8.0_231\\bin\\java.exe\""
+                        "\"C:\\Program Files\\Java\\jdk1.8.0_231\\bin\\java.exe\"", runcmd
                         ,jarDest, peer.username, peer.ip, Integer.toString(peer.port), rootStr
                 );
 
-                peer.args = new String[] {"peerstart", peer.username, peer.ip, Integer.toString(peer.port), rootStr, localPath};
+                peer.args = new String[] {runcmd, peer.username, peer.ip, Integer.toString(peer.port), rootStr, localPath};
 
                 peer.workingDir = localPath;
                 peer.cmd = cmd;
@@ -512,13 +552,15 @@ public class TestHarness {
         });
 
 
+        boolean firstUser = true;
         for (TestNetworkManager.PeerGenInfo peer : peers) {
             runningCount.addAndGet(1);
             runningMap.put(peer.username, true);
+            boolean finalFirstUser = firstUser;
             new Thread(() -> {
                 try {
                     if(!peer.isLocal) {
-                        runSSH(peer.ip, "sh " + TestRunner.cmdFilename, true);
+                        runSSH(peer.ip, "sh " + TestRunner.cmdFilename, true, true);
                     }else{
                         runLocal(peer);
                     }
@@ -529,6 +571,7 @@ public class TestHarness {
                 runningMap.put(peer.username, false);
                 runningCount.decrementAndGet();
             }).start();
+            firstUser = false;
         }
 
         String _logFolder = "remote-logs";
@@ -599,41 +642,51 @@ public class TestHarness {
     }
 
     HashMap<String, String> downloadLogsRetry(List<TestNetworkManager.PeerGenInfo> peers, String logFolder, int retries) throws Exception {
+        testStatusLogger.log(Level.INFO, "Downloading logs");
         try {
             return downloadLogs(peers, logFolder);
         } catch(Exception e) {
             if(retries==0) {
                 throw e;
             }else{
-                testStatusLogger.log(Level.INFO, "Retrying download logs");
+                testStatusLogger.log(Level.INFO, "Retrying download logs", e);
+                e.printStackTrace();
             }
         }
+        testStatusLogger.log(Level.INFO, "Downloaded logs");
         return null;
     }
 
     HashMap<String, String> downloadLogs(List<TestNetworkManager.PeerGenInfo> peers, String logFolder) throws Exception {
         HashMap<String, String> logFiles = new HashMap<>();
+        boolean failed = false;
         for (TestNetworkManager.PeerGenInfo peer : peers) {
-            String src = "log";
-            String file = String.format("%s%s%s.log",
-                    peer.username,
-                    peer.isRoot?"-ROOT":"",
-                    peer.isLocal?"-LOCAL":""
-            );
-            String dest = Paths.get(logFolder, file).toString();
+            try {
+                String src = "log";
+                String file = String.format("%s%s%s.log",
+                        peer.username,
+                        peer.isRoot ? "-ROOT" : "",
+                        peer.isLocal ? "-LOCAL" : ""
+                );
+                String dest = Paths.get(logFolder, file).toString();
 
 //            System.out.println(String.format(
 //                    "Downloading logs for user %s, host %s, to file %s",
 //                    peer.username, peer.ip, file
 //            ));
 
-            if(peer.isLocal) {
-                FileUtils.copyFile(Paths.get(peer.workingDir, "log").toFile(), new File(dest));
-            }else {
-                download(peer.ip, src, dest);
+                if (peer.isLocal) {
+                    FileUtils.copyFile(Paths.get(peer.workingDir, "log").toFile(), new File(dest));
+                } else {
+                    download(peer.ip, src, dest);
+                }
+                logFiles.put(peer.username, dest);
+            } catch(Exception e) {
+                e.printStackTrace();
+                failed = true;
             }
-            logFiles.put(peer.username, dest);
         }
+        if(failed) throw new Exception();
         return logFiles;
     }
     private void localUpload(String localPath, String[] src, String[] dst) throws Exception{
@@ -688,11 +741,12 @@ public class TestHarness {
 
         instances = getInstances();
         for (Instance instance : instances) {
-            runSSH(instance.getPublicIpAddress(), "sudo yum -y install java-1.8.0-openjdk", false);
+            runSSH(instance.getPublicIpAddress(), "sudo yum -y install java-1.8.0-openjdk", false, false);
         }
     }
 
-    public P2PTestInfo generateNetwork(long remoteCount, long localCount, boolean shouldRedeploy, boolean localThreaded) throws Exception {
+    public P2PTestInfo generateNetwork(long remoteCount, long localCount, String runcmd, boolean shouldRedeploy, boolean localThreaded,
+                                       boolean exitAfterStart) throws Exception {
         jarPath = System.getProperty("jarPath");
         File jar = new File(jarPath);
         if(shouldRedeploy) {
@@ -710,6 +764,6 @@ public class TestHarness {
             List<Instance> instances = getInstances();
             startInstanceCount(instances, remoteCount);
         }
-        return createAndUploadFiles(remoteCount, localCount, shouldRedeploy, localThreaded);
+        return createAndUploadFiles(remoteCount, localCount, runcmd, shouldRedeploy, localThreaded, exitAfterStart);
     }
 }

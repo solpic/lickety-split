@@ -52,7 +52,6 @@ public class FileSharer {
         @Override
         public void handle(ReceivedMessage m) throws Exception {
             ChunkAvailabilityResponse decodedMessage = m.getMessage();
-            m.log(String.format("Chunk availability response "));
             PeerChunkInfo peerChunkInfo = decodedMessage.peerChunkInfo;
             dManager.addPeerAndRequestChunkIfPossible(peerChunkInfo, m.getConn(), this.userInfo);
         }
@@ -63,6 +62,14 @@ public class FileSharer {
     public boolean isInProgress(String name) {
         synchronized (currentDownloads) {
             return currentDownloads.containsKey(name);
+        }
+    }
+
+    public DownloadManager currentProgress(String name) {
+        synchronized (currentDownloads) {
+            if(currentDownloads.containsKey(name))
+            return currentDownloads.get(name);
+            else return null;
         }
     }
 
@@ -83,6 +90,7 @@ public class FileSharer {
     }
 
     Retrier downloadRetrier = new Retrier(new int[]{5000, 10000, 15000}, 30000);
+
     public void download(FileInfo fileInfo){
         new Thread(() -> {
             try {
@@ -113,6 +121,8 @@ public class FileSharer {
             }
         }).start();
     }
+
+
 
 
     public DownloadManager downloadWrapper(FileInfo fileInfo, Object doneLock) throws Exception {

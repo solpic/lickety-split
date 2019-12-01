@@ -29,16 +29,18 @@ public class ChunkAvailabilityRequest extends JSONMessage {
             FileManager fm = env.getFM();
             //m.log("3");
             if( fm.hasFile(requestedFileName)) {
+                env.log("Has chunks");
                 try {
                     m.respond(new ChunkAvailabilityResponse(env, fm.getFile(requestedFileName), tstMsg.fileInfo), null);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    env.log("Error handling chunk availability", e);
                 }
             } else {
+                env.log("Doesn't have chunks");
                 try {
                     m.respond(new ChunkAvailabilityResponse(), null);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    env.log("Error handling non-chunk availability", e);
                 }
             }
         }

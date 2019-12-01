@@ -1,15 +1,20 @@
 package org.licketysplit.securesocket.peers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.io.FileUtils;
 import org.licketysplit.env.Environment;
 import org.licketysplit.securesocket.encryption.AsymmetricCipher;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
+import java.awt.*;
+import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.KeyPair;
 import java.util.*;
+import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /*
 Stores info about each peer and the network.
@@ -278,8 +283,81 @@ public class PeerInfoDirectory {
         }
     }
 
-    public void newPeerCallback(PeerInfo peer) throws Exception {
 
+
+    public static void zipFiles(String[] src, String[] dst, String zip) throws Exception {
+        FileOutputStream fos = new FileOutputStream(zip);
+        ZipOutputStream zipOut = new ZipOutputStream(fos);
+        for (int i = 0; i < src.length; i++) {
+            File fileToZip = new File(src[i]);
+            FileInputStream fis = new FileInputStream(fileToZip);
+            ZipEntry zipEntry = new ZipEntry(dst[i]);
+            zipOut.putNextEntry(zipEntry);
+
+            byte[] bytes = new byte[1024];
+            int length;
+            while((length = fis.read(bytes)) >= 0) {
+                zipOut.write(bytes, 0, length);
+            }
+            fis.close();
+        }
+        zipOut.close();
+        fos.close();
+    }
+
+    public File generateBootstrapFile(String username, String ip, String port, byte[] identityKey, boolean isRoot, byte[] rootkey) throws Exception {
+        Path temp = Files.createTempDirectory("temp");
+        File bootstrap = new File(Paths.get(temp.toString(),
+                String.format("%s-p2p.zip", username)
+        ).toString());
+        File idkey = File.createTempFile("keyfile", null);
+        File info = File.createTempFile("infodir", null);
+        File userInfo = File.createTempFile("userinfo", null);
+        File rootKeyFile = File.createTempFile("rootkey", null);
+        if(isRoot) {
+            KeyStore rootkeyStore = new KeyStore(rootKeyFile.getPath());
+            rootkeyStore.setKey(rootkey);
+            rootkeyStore.save();
+        }
+
+
+        save();
+        FileUtils.writeStringToFile(info, toJSONString(), "UTF-8");
+        KeyStore idkeystore = new KeyStore(idkey.getPath());
+        idkeystore.setKey(identityKey);
+        idkeystore.save();
+        ObjectMapper objectMapper = new ObjectMapper();
+        HashMap<String, String> userInfoMap = new HashMap<>();
+        userInfoMap.put("username", username);
+        userInfoMap.put("ip", ip);
+        userInfoMap.put("port", port);
+        FileUtils.writeStringToFile(userInfo, objectMapper.writeValueAsString(userInfoMap), "UTF-8");
+
+        if(!isRoot) {
+            zipFiles(
+                    new String[]{info.getAbsolutePath(), idkey.getAbsolutePath(), userInfo.getAbsolutePath()},
+                    new String[]{"peerinfodir", "idkey", "userinfo"},
+                    bootstrap.getAbsolutePath()
+            );
+        }else{
+            zipFiles(
+                    new String[]{info.getAbsolutePath(), idkey.getAbsolutePath(), userInfo.getAbsolutePath(), rootKeyFile.getAbsolutePath()},
+                    new String[]{"peerinfodir", "idkey", "userinfo", "rootkey"},
+                    bootstrap.getAbsolutePath()
+            );
+        }
+
+        idkey.delete();
+        info.delete();
+        userInfo.delete();
+        if(isRoot) {
+            rootKeyFile.delete();
+        }
+
+        return bootstrap;
+    }
+    public void newPeerCallback(PeerInfo peer) throws Exception {
+        env().getPm().newPeer(peer.getUsername());
     }
 
     Environment e;

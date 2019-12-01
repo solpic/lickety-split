@@ -200,10 +200,8 @@ public class SecureSocket {
     public static AtomicInteger sockId = new AtomicInteger(0);
     class SocketReader implements Runnable {
 
-        ConcurrentLinkedQueue<Message> oldMessages;
         @Override
         public void run() {
-            oldMessages = new ConcurrentLinkedQueue<>();
             while(true) {
                 Integer responseId = null;
                 Integer myId = null;
@@ -281,10 +279,10 @@ public class SecureSocket {
                     MessageHandler messageHandler;
                     if(messageHandlers.containsKey(myId)) {
                          messageHandler = messageHandlers.get(myId);
+                         messageHandlers.remove(myId);
                     }else{
                         messageHandler = defaultHandlers.get(classCode);
                     }
-                    oldMessages.add(msg);
                     if(showDetailedDebug) log.log(Level.OFF, "Calling response handler");
                     messageHandler.handle(new ReceivedMessage(msg, SecureSocket.this, responseId, env));
                     if(showDetailedDebug) log.log(Level.OFF, "Done calling response handler");
@@ -365,21 +363,8 @@ public class SecureSocket {
                         rawPayloadBytesHead[i] = payloadBytes[i];
                     }
                     String rawPayloadHead = Base64.getEncoder().encodeToString(rawPayloadBytesHead);
-                    if(showSocketMessages)log.log(String.format("Sending %s to '%s', payload size: %d, headers size: %d, id: %d, responding: %d, classcode: %d, payload head: %s, key: %s, iv: %s",
-                            messageCodes[classCode].getName(), peerUsername, payloadBytes.length, headersBytes.length,
-                            id, nextMessage.respondingToMessage, classCode, rawPayloadHead,
-                            useEncryption&&cipher.keyBytesStored!=null?Base64.getEncoder().encodeToString(cipher.keyBytesStored):"none",
-                            useEncryption&&cipher.ivBytesStored!=null?Base64.getEncoder().encodeToString(cipher.ivBytesStored):"none"));
-//                    log.log(Level.OFF, String.format(
-//                            "Sending message with \n\tID: %d, \n\tResponseID: %d, \n\tCode: %d, \n\tClass: %s, \n\tSize: %d, \n\tUsing encryption: %b",
-//                            id, nextMessage.respondingToMessage, classCode, messageCodes[classCode].getName(), payload.length, useEncryption));
-//                    if(nextMessage.msg instanceof GetPeerListResponse) {
-//                            log.log(String.format(
-//                                    "Sending peer list response to %s, id: %d, rid: %d, size: %d, payload:\n %s",
-//                                    peerUsername, id, nextMessage.respondingToMessage, payloadBytes.length,
-//                                    Base64.getEncoder().encodeToString(payloadBytes)
-//                            ));
-//                    }
+                    if(showSocketMessages)
+                        log.log(String.format("Sending %s to '%s'", messageCodes[classCode].getName(), peerUsername));
 
                     out.writeInt(headersBytes.length);
                     out.write(headersBytes);
@@ -389,6 +374,8 @@ public class SecureSocket {
                     if(nextMessage.msg.doesActivateEncryption()) {
                         activateEncryption();
                     }
+                    if(showSocketMessages)
+                        log.log(String.format("SENT %s to '%s'", messageCodes[classCode].getName(), peerUsername));
 
                 }catch(Exception e) {
                     log.log(Level.SEVERE, String.format("Exception during socket writer with '%s'", peerUsername), e);

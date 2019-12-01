@@ -53,10 +53,8 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
     public ConcurrentHashMap<UserInfo, SecureSocket> getPeers() {
         return peers;
     }
-    List<String> handshakes;
     public PeerManager() {
         peers = new ConcurrentHashMap<>();
-        handshakes = new LinkedList<>();
         initConnectHandlers();
     }
     void initConnectHandlers() {
@@ -78,7 +76,11 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
     void createSocketAndConnect(PeerAddress peer) throws Exception {
         if (peer.getServerInfo() == null) return;
         // First check that we should connect
-        if (peer.user.equals(env.getUserInfo())) return;
+        if (peer.getUser().getUsername().equals(env.getUserInfo().getUsername())) return;
+        env.log(String.format("Connecting to %s, I am %s %b",
+                peer.getUser().getUsername(),
+                env.getUserInfo().getUsername(),
+                peer.getUser().getUsername().equals(env.getUserInfo().getUsername())));
 
         if (peers.containsKey(peer)) return;
         for (Map.Entry<UserInfo, SecureSocket> peerInfo : peers.entrySet()) {
@@ -87,26 +89,30 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         //log.log(Level.INFO,
         //        String.format("Connecting to user: %s, at IP: %s, port %d",
         //                peer.getUser().getUsername(), peer.ip, peer.getServerInfo().port));
-        newConnectionHandler(SecureSocket.connect(peer, env), false);
+        newConnectionHandler(peer.getUser().getUsername(), SecureSocket.connect(peer, env), false);
     }
 
-    Retrier retry = new Retrier(new int[]{10000, 20000, 20000, 20000}, 60000);
+    Retrier retry = new Retrier(new int[]{5000, 5000, 5000, 5000, 5000, 10000, 10000, 10000, 20000, 20000, 20000, 20000}, 60000);
 
-    public void retryAddPeer(PeerAddress peer) throws Exception {
-        new Thread(() -> {
-            try {
-                if(retry.tryOrRetry(peer.getUser().getUsername(), false)) {
-                    createSocketAndConnect(peer);
-                }
-            } catch(Exception e) {
-                env.getLogger().log(Level.INFO,
-                        "Error starting addPeer",
-                        e);
-            }
-        }).start();
-    }
+    private void addPeerWrapper(PeerAddress peer, boolean firstTry) throws Exception {
+        String username = peer.getUser().getUsername();
+        env.log(String.format("Connecting to %s, I am %s %b",
+                peer.getUser().getUsername(),
+                env.getUserInfo().getUsername(),
+                peer.getUser().getUsername().equals(env.getUserInfo().getUsername())));
+        if (peer.getServerInfo() == null) {
+            return;
+        }
+        // First check that we should connect
+        if (peer.getUser().getUsername().equals(env.getUserInfo().getUsername())) return;
 
-    public void addPeer(PeerAddress peer) throws Exception {
+        if (peers.containsKey(peer)) return;
+        if(peers.keySet().stream().filter(e->e.getUsername().equals(username)).count()>0) {
+            env.log(String.format("Peer already connected '%s', abort", username));
+            return;
+        }else{
+            env.log(String.format("Not connected to '%s', continuing", username));
+        }
         new Thread(() -> {
             try {
                 if(retry.tryOrRetry(peer.getUser().getUsername(), true)) {
@@ -118,6 +124,14 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
                         e);
             }
         }).start();
+    }
+
+    public void retryAddPeer(PeerAddress peer) throws Exception {
+        addPeerWrapper(peer, false);
+    }
+
+    public void addPeer(PeerAddress peer) throws Exception {
+        addPeerWrapper(peer, true);
     }
 
     public static class SyncInfoDir extends JSONMessage {
@@ -150,6 +164,10 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         }
     }
 
+    public void newPeer(String username) throws Exception {
+        addPeer(peerFromUsername(username));
+        messageAllPeers(new SyncInfoDir(env.getInfo()), null);
+    }
     public void userBanned(String username) throws Exception {
         synchronized (peers) {
             for (Map.Entry<UserInfo, SecureSocket> peerEntry : peers.entrySet()) {
@@ -178,10 +196,10 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         }).start();
     }
 
-
     public void start() throws Exception {
         new Thread(() -> {
             try {
+                env.getLogger().log("Starting peer manager");
                 listenInNewThread();
 
                 Map<String, PeerInfoDirectory.PeerInfo> peers = env.getInfo().getPeers();
@@ -198,6 +216,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
                     }
                 }
             }catch(Exception e) {
+                env.log("Error during start", e);
                 e.printStackTrace();
             }
         }).start();
@@ -206,6 +225,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
     public void confirmPeer(String username, UserInfo user, SecureSocket sock, boolean isServer) throws Exception {
         sock.peerUsername = username;
         synchronized (peers) {
+            if(username.equals(env.getUserInfo().getUsername())) return;
             SecureSocket oldVal = peers.putIfAbsent(user, sock);
             if(oldVal==null) {
                 sock.setUserInfo(user);
@@ -228,6 +248,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         log.log(Level.INFO, "New peer '"+user.getUsername()+"' has been confirmed");
         log.log(Level.INFO, "Total peer count: "+peers.size());
         env.getDebug().trigger("peerConfirmed", user, sock);
+        env.changes.runHandler("peerlist-changed", peers.size());
         for (NewConnectionHandler handler : onConnectHandlers) {
             handler.connectionConfirmed(user, sock, env);
         }
@@ -254,52 +275,29 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
                 try {
                     m.getEnv().getPm().newConnectionHandlerServer(m);
                 }catch(Exception e) {
+                    m.getEnv().log("Error during public", e);
                     e.printStackTrace();
                 }
             }).start();
         }
     }
 
-
-    boolean lockHandshake(String username) throws Exception {
-        synchronized (handshakes) {
-            if (handshakes.indexOf(username)>=0) {
-            } else {
-                log.log(Level.INFO, "Handshaking with "+username);
-                handshakes.add(username);
-                return true;
+    ConcurrentHashMap<String, Object> handshakeLocks = new ConcurrentHashMap<String, Object>();
+    Object getHandshakeLock(String username) {
+        synchronized (handshakeLocks) {
+            if(handshakeLocks.containsKey(username)) {
+                return handshakeLocks.get(username);
+            }else{
+                handshakeLocks.put(username, new Object());
+                return handshakeLocks.get(username);
             }
-        }
-        do {
-            log.log(Level.INFO, String.format("Sleeping until can handshake with '%s'", username));
-            Thread.sleep(2000);
-            if(peers.entrySet().stream()
-                    .filter(e -> e.getKey().getUsername().equals(username))
-                    .count()==1) {
-                log.log(Level.INFO, String.format("Already connected to '%s', ending handshake", username));
-                return false;
-            }
-            synchronized (handshakes) {
-                if(handshakes.indexOf(username)<0) {
-                    log.log(Level.INFO, "Handshaking with "+username);
-                    handshakes.add(username);
-                    return true;
-                }
-            }
-
-        } while(true);
-    }
-
-    void unlockHandshake(String username) throws Exception {
-        synchronized (handshakes) {
-            handshakes.remove(username);
         }
     }
 
+    int handshakeTimeout = 10000;
     void newConnectionHandlerServer(ReceivedMessage m) throws Exception {
         // NEXT MESSAGE
         // Receive public key
-        boolean marked = false;
         String toUser = "unknown";
         boolean hasUsername = false;
         SecureSocket.TimeoutException exceptor = () -> {
@@ -310,11 +308,6 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
             SecurityHandshake.SendPublicKeyMessage msg = m.getMessage();
             toUser = msg.getUsername();
             hasUsername = true;
-
-            if(!lockHandshake(toUser)) {
-                return;
-            }
-            marked = true;
 
             m.getEnv().getLogger().log(Level.INFO, "Server beginning handshake with " + toUser);
             AsymmetricCipher encryptor = new AsymmetricCipher();
@@ -346,8 +339,8 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
 
             // NEXT MESSAGE
             // Exchange user ids
-             log.log(Level.INFO, String.format("Waiting for user id message '%s'", toUser));
-            ReceivedMessage userIdMessage = m.respondAndWait(nMsg, exceptor, 10000);
+             log.log(Level.INFO, String.format("Sending symmetric key WITH BAD BYTES, Waiting for user id message '%s'", toUser));
+            ReceivedMessage userIdMessage = m.respondAndWait(nMsg, exceptor, handshakeTimeout);
 
             UserInfo.UserIDMessage userId = userIdMessage.getMessage();
             String username = userId.getUserInfo().getUsername();
@@ -360,7 +353,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
             m.getEnv().getLogger().log(Level.INFO, String.format("Receiving INITIAL handshake ID '%s'", toUser));
             m.getConn().setServerInfo(userId.getUserInfo().getServer());
 
-            m = userIdMessage.respondAndWait(new UserInfo.UserIDMessage(userIdMessage.getEnv().getUserInfo(), env.getInfo().myInfo(env)), exceptor, 10000);
+            m = userIdMessage.respondAndWait(new UserInfo.UserIDMessage(userIdMessage.getEnv().getUserInfo(), env.getInfo().myInfo(env)), exceptor, handshakeTimeout);
 
 
             byte[] theirIdKey = env.getInfo().getPeers().get(userId.getUserInfo().getUsername()).getIdentityKey();
@@ -379,7 +372,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
             idConfirmResponse.val().put("ciphertext", cipher.encrypt(plaintext));
 
             log.log(Level.INFO, "Sending ID confirm response and checking their ID");
-            m = m.respondAndWait(idConfirmResponse, exceptor, 10000);
+            m = m.respondAndWait(idConfirmResponse, exceptor, handshakeTimeout);
             MapMessage idConfirm = m.getMessage();
             if (!keysEqual(plaintext, Base64.getDecoder().decode((String) idConfirm.val().get("plaintext")))) {
                 throw new Exception();
@@ -390,10 +383,6 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
             m.getEnv().getPm().confirmPeer(toUser, userId.getUserInfo(), m.getConn(), true);
 
         }catch (Exception e) {
-            if(marked) {
-                unlockHandshake(toUser);
-            }
-
             env.getLogger().log(
                     Level.INFO,
                     String.format("Handshaking error"),
@@ -405,9 +394,6 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
             return;
 //            e.printStackTrace();
 //            throw new Exception("Error handshaking with "+toUser);
-        }
-        if(marked) {
-            unlockHandshake(toUser);
         }
     }
 
@@ -421,118 +407,122 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         }
     }
 
-    void newConnectionHandlerClient(SecureSocket sock) throws Exception {
-        boolean marked = false;
-        String toUser = "unknown";
-        boolean hasUsername = false;
-        SecureSocket.TimeoutException exceptor = () -> {
-            throw new Exception("Message timed out");
-        };
-        try {
-            // NEXT MESSAGE
-            // SEND PUBLIC KEY
-            log.log(Level.INFO, "Client starting handshake");
-            env.getDebug().trigger("handshaking");
-            AsymmetricCipher decryptor = new AsymmetricCipher();
-            KeyPair keyPair = decryptor.generateKeyPair();
-            decryptor.setPrivateKey(keyPair.getPrivate());
-            SecurityHandshake.SendPublicKeyMessage publicKeyMsg =
-                    new SecurityHandshake.SendPublicKeyMessage(keyPair.getPublic().getEncoded(), env.getUserInfo().getUsername());
+    public String peerStatus(String username) {
+        if(peers.keySet().stream().filter(e->e.getUsername().equals(username)).count()>0) {
+            return "Connected";
+        }else if (env.getUserInfo().getUsername().equals(username)){
+            return "This is you";
+        }else if(env.getInfo().peers.get(username).getBan()!=null) {
+            return "Banned";
+        }else {
+            return "N/A";
+        }
+    }
 
-            ReceivedMessage m = sock.sendMessageAndWait(
-                    publicKeyMsg,
-                    SecureSocket.timeoutFactory(String.format("Message timed out")),
-                    10000
-            );
+    void newConnectionHandlerClient(String lockUsername, SecureSocket sock) throws Exception {
+        Object handshakeLock = getHandshakeLock(lockUsername);
+        synchronized (handshakeLock) {
+            String toUser = "unknown";
+            boolean hasUsername = false;
+            SecureSocket.TimeoutException exceptor = () -> {
+                throw new Exception("Message timed out");
+            };
+            try {
+                // NEXT MESSAGE
+                // SEND PUBLIC KEY
+                log.log(Level.INFO, "Client starting handshake");
+                env.getDebug().trigger("handshaking");
+                AsymmetricCipher decryptor = new AsymmetricCipher();
+                KeyPair keyPair = decryptor.generateKeyPair();
+                decryptor.setPrivateKey(keyPair.getPrivate());
+                SecurityHandshake.SendPublicKeyMessage publicKeyMsg =
+                        new SecurityHandshake.SendPublicKeyMessage(keyPair.getPublic().getEncoded(), env.getUserInfo().getUsername());
+
+                ReceivedMessage m = sock.sendMessageAndWait(
+                        publicKeyMsg,
+                        SecureSocket.timeoutFactory(String.format("Message timed out")),
+                        handshakeTimeout
+                );
 
 
-            // NEXT MESSAGE
-            // RECEIVE SYMMETRIC KEY
-            env.getDebug().trigger("handshaking");
-            SecurityHandshake.SendSymmetricKeyMessage msg = m.getMessage();
+                // NEXT MESSAGE
+                // RECEIVE SYMMETRIC KEY
+                env.getDebug().trigger("handshaking");
+                SecurityHandshake.SendSymmetricKeyMessage msg = m.getMessage();
 
-            toUser = msg.getUsername();
-            hasUsername = true;
-            log.log(Level.INFO, "Received symmetric key, starting user handshake with "+toUser);
+                toUser = msg.getUsername();
+                hasUsername = true;
+                log.log(Level.INFO, "Received symmetric key WITH BAD BYTES, starting user handshake with " + toUser);
 
-            if(!lockHandshake(toUser)) {
-                return;
-            }
-            marked = true;
-            byte[] key = decryptor.decrypt(msg.getEncryptedKey());
-            byte[] iv = decryptor.decrypt(msg.getEncryptedIv());
+                byte[] key = decryptor.decrypt(msg.getEncryptedKey());
+                byte[] iv = decryptor.decrypt(msg.getEncryptedIv());
 
-            log.log(String.format("Received key from '%s'", toUser));
+                log.log(String.format("Received key from '%s'", toUser));
 //        log.log(
 //                Level.INFO, String.format("Received KEY from: %s, Key: %s, IV: %s",
 //                        toUser,
 //                        Base64.getEncoder().encodeToString(key),
 //                        Base64.getEncoder().encodeToString(iv)));
 
-            SymmetricCipher symmetricCipher = new SymmetricCipher();
-            symmetricCipher.setKey(key, iv);
-            m.getConn().setCipher(symmetricCipher);
-            m.getConn().activateEncryption();
+                SymmetricCipher symmetricCipher = new SymmetricCipher();
+                symmetricCipher.setKey(key, iv);
+                m.getConn().setCipher(symmetricCipher);
+                m.getConn().activateEncryption();
 
-            // NEXT MESSAGE
-            // SEND USER INFO
-            ReceivedMessage userIdResponse = m.respondAndWait(new UserInfo.UserIDMessage(env.getUserInfo(), env.getInfo().myInfo(env)), exceptor, 10000);
-            log.log(Level.INFO, "Received user ID from "+toUser);
-            env.getDebug().trigger("handshaking");
-            UserInfo.UserIDMessage userInfoMsg = userIdResponse.getMessage();
+                // NEXT MESSAGE
+                // SEND USER INFO
+                ReceivedMessage userIdResponse = m.respondAndWait(new UserInfo.UserIDMessage(env.getUserInfo(), env.getInfo().myInfo(env)), exceptor, handshakeTimeout);
+                log.log(Level.INFO, "Received user ID from " + toUser);
+                env.getDebug().trigger("handshaking");
+                UserInfo.UserIDMessage userInfoMsg = userIdResponse.getMessage();
 
-            String username = userInfoMsg.getUserInfo().getUsername();
+                String username = userInfoMsg.getUserInfo().getUsername();
 
-            if (env.getInfo().getPeers().get(username) == null) {
-                //     log.log(Level.INFO, "Unknown username '"+username+"', attempting to add and verify");
-                env.getInfo().newPeerAndConfirm(userInfoMsg.getPeerInfo());
-                env.getInfo().save();
+                if (env.getInfo().getPeers().get(username) == null) {
+                    //     log.log(Level.INFO, "Unknown username '"+username+"', attempting to add and verify");
+                    env.getInfo().newPeerAndConfirm(userInfoMsg.getPeerInfo());
+                    env.getInfo().save();
+                }
+                m.getConn().setServerInfo(userInfoMsg.getUserInfo().getServer());
+
+                // Now we confirm identity using the identity keys
+                MapMessage idConfirm = new MapMessage();
+                byte[] plaintext = new byte[AsymmetricCipher.idBlockSize()];
+                byte[] theirIdKey = env.getInfo().getPeers().get(username).getIdentityKey();
+                AsymmetricCipher cipher = new AsymmetricCipher();
+                cipher.setPublicKey(theirIdKey);
+                Random rnd = new Random(System.currentTimeMillis());
+                rnd.nextBytes(plaintext);
+
+                idConfirm.val().put("ciphertext", cipher.encrypt(plaintext));
+
+                log.log(Level.INFO, "Checking their ID");
+                ReceivedMessage theirIdConfirm = userIdResponse.respondAndWait(idConfirm, exceptor, handshakeTimeout);
+                MapMessage idConfirmResponse = theirIdConfirm.getMessage();
+
+                if (!keysEqual(plaintext, Base64.getDecoder().decode((String) idConfirmResponse.val().get("plaintext")))) {
+                    throw new Exception("ID verification failed");
+                }
+                byte[] ciphertext = Base64.getDecoder().decode((String) idConfirmResponse.val().get("ciphertext"));
+                AsymmetricCipher myCipher = new AsymmetricCipher();
+                myCipher.setPrivateKey(env.getIdentityKey().getKey());
+
+                MapMessage confirmMyId = new MapMessage();
+                confirmMyId.val().put("plaintext", myCipher.decrypt(ciphertext));
+
+                //log.log(Level.INFO, "Verifying own ID");
+                theirIdConfirm.respond(confirmMyId, null);
+
+                log.log(Level.INFO, "Client ending handshake with " + username);
+                m.getEnv().getPm().confirmPeer(username, userInfoMsg.getUserInfo(), userIdResponse.getConn(), false);
+            } catch (Exception e) {
+                env.getLogger().log(Level.INFO, "Handshake error", e);
+                e.printStackTrace();
+                if (hasUsername) {
+                    retryAddPeer(peerFromUsername(toUser));
+                }
+                throw new Exception("Error handshaking with " + toUser);
             }
-            m.getConn().setServerInfo(userInfoMsg.getUserInfo().getServer());
-
-            // Now we confirm identity using the identity keys
-            MapMessage idConfirm = new MapMessage();
-            byte[] plaintext = new byte[AsymmetricCipher.idBlockSize()];
-            byte[] theirIdKey = env.getInfo().getPeers().get(username).getIdentityKey();
-            AsymmetricCipher cipher = new AsymmetricCipher();
-            cipher.setPublicKey(theirIdKey);
-            Random rnd = new Random(System.currentTimeMillis());
-            rnd.nextBytes(plaintext);
-
-            idConfirm.val().put("ciphertext", cipher.encrypt(plaintext));
-
-            log.log(Level.INFO, "Checking their ID");
-            ReceivedMessage theirIdConfirm = userIdResponse.respondAndWait(idConfirm, exceptor, 10000);
-            MapMessage idConfirmResponse = theirIdConfirm.getMessage();
-
-            if (!keysEqual(plaintext, Base64.getDecoder().decode((String) idConfirmResponse.val().get("plaintext")))) {
-                throw new Exception("ID verification failed");
-            }
-            byte[] ciphertext = Base64.getDecoder().decode((String) idConfirmResponse.val().get("ciphertext"));
-            AsymmetricCipher myCipher = new AsymmetricCipher();
-            myCipher.setPrivateKey(env.getIdentityKey().getKey());
-
-            MapMessage confirmMyId = new MapMessage();
-            confirmMyId.val().put("plaintext", myCipher.decrypt(ciphertext));
-
-            //log.log(Level.INFO, "Verifying own ID");
-            theirIdConfirm.respond(confirmMyId, null);
-
-            log.log(Level.INFO, "Client ending handshake with " + username);
-            m.getEnv().getPm().confirmPeer(username, userInfoMsg.getUserInfo(), userIdResponse.getConn(), false);
-        } catch(Exception e) {
-            if(marked) {
-                unlockHandshake(toUser);
-            }
-            env.getLogger().log(Level.INFO, "Handshake error", e);
-            e.printStackTrace();
-            if(hasUsername) {
-                retryAddPeer(peerFromUsername(toUser));
-            }
-            throw new Exception("Error handshaking with "+toUser);
-        }
-        if(marked) {
-            unlockHandshake(toUser);
         }
     }
 
@@ -553,12 +543,12 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         return new GetPeerListResponse(peerInfoList, env.getInfo());
     }
 
-    void newConnectionHandler(SecureSocket sock, boolean isServer) throws Exception{
+    void newConnectionHandler(String username, SecureSocket sock, boolean isServer) throws Exception{
         if(sock==null) return;
         if(!isServer) {
             new Thread(() -> {
                 try {
-                    newConnectionHandlerClient(sock);
+                    newConnectionHandlerClient(username, sock);
                 }catch(Exception e) {
                     e.printStackTrace();
                 }
@@ -568,7 +558,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
 
     @Override
     public void onConnect(SecureSocket sock) throws Exception {
-        newConnectionHandler(sock, true);
+        newConnectionHandler(null, sock, true);
     }
 
     public static class PeerAddress {

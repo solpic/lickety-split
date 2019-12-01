@@ -30,13 +30,9 @@ public class Retrier {
         RetryInfo retryInfo;
         synchronized (processes) {
             if(processes.containsKey(key)) {
-                if(firstTry) {
-                    env.log(String.format("Retrier failed for '%s', claiming first try", key));
-                    return false;
-                }
                 retryInfo = processes.get(key);
                 retryInfo.lastKnownAttemptTime = System.currentTimeMillis();
-                retryInfo.attempts++;
+                processes.put(key, retryInfo);
             }else{
                 retryInfo = new RetryInfo();
                 processes.put(key, retryInfo);
@@ -50,12 +46,16 @@ public class Retrier {
                     Thread.sleep(waitFor);
                 }
                 retryInfo.lastKnownAttemptTime = System.currentTimeMillis();
+
+                retryInfo.attempts++;
+                processes.put(key, retryInfo);
                 return true;
             }else{
                 if(System.currentTimeMillis()>retryInfo.lastKnownAttemptTime+attemptResetTime) {
                     env.log(String.format("Retrying '%s' after resetting attempt count", key));
                     retryInfo.attempts = 0;
                     retryInfo.lastKnownAttemptTime = System.currentTimeMillis();
+                    processes.put(key, retryInfo);
                     return true;
                 }else{
                     env.log(String.format("Won't allow retry of '%s' due to too many attempts", key));

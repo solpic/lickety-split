@@ -1,6 +1,7 @@
 package org.licketysplit.syncmanager;
 
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.io.FileUtils;
 import org.json.JSONObject;
 import org.licketysplit.env.Environment;
 import org.licketysplit.filesharer.DownloadManager;
@@ -32,23 +33,6 @@ public class SyncManager {
         this.env = env;
     }
 
-    //When a user updates a file they own
-    public void updateFile(String fileNameWithPath) throws Exception {
-        File file = new File(fileNameWithPath);
-        FileInfo fileInfo = new FileInfo(file, new Date().getTime()); //Create updated file info obj
-
-        FileManager fm = env.getFM();
-        PeerManager pm = env.getPm();
-
-        fm.updateFile(fileNameWithPath);
-
-        this.env.getLogger().log(Level.INFO, "SENDING UPDATE: " + fileInfo.getName());
-
-        ConcurrentHashMap<UserInfo, SecureSocket> peers = pm.getPeers();
-        for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
-            peer.getValue().sendFirstMessage(new UpdateFileNotification(fileInfo), null);
-        }
-    }
 
 
     public String getMD5(File file) throws Exception {
@@ -68,6 +52,25 @@ public class SyncManager {
 //        }
     }
 
+    //When a user updates a file they own
+    public void updateFile(String fileToUpdate, String fileToUpdateWith) throws Exception {
+        File file = new File(fileToUpdate);
+
+        String dstPath = env.getFM().getSharedDirectoryPath(fileToUpdate);
+        File dstF = new File(dstPath);
+        if(dstF.exists()) dstF.delete();
+        FileUtils.copyFile(new File(fileToUpdateWith), dstF);
+
+        FileInfo fileInfo = new FileInfo(new File(fileToUpdate), new Date().getTime());
+        fileInfo.md5 = env.getSyncManager().getMD5(dstF);
+        fileInfo.deleted = false;
+        fileInfo.length = dstF.length();
+        env.getFM().updateFileInManifest(fileInfo);
+
+        this.env.getLogger().log(Level.INFO, "SENDING UPDATE: " + fileInfo.getName());
+
+        syncManifests();
+    }
     public void deleteFile(String fileName) throws Exception {
         FileInfo deletedFileInfo = new FileInfo(fileName, true);
         this.env.getFM().deleteFile(deletedFileInfo);

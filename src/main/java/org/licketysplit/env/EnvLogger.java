@@ -33,6 +33,10 @@ public class EnvLogger {
         logger.addHandler(fh);
     }
 
+    public void log(String s, Exception e) {
+        log(Level.INFO, s, e);
+    }
+
     Formatter getFormatter() {
         return new SimpleFormatter() {
             private static final String format = "[%1$tF %1$tT.%1$tL] %3$s %n";

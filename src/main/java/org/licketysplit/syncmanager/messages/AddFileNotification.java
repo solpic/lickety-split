@@ -42,7 +42,6 @@ public class AddFileNotification extends JSONMessage {
                 fm.addFileNotification(fileInfo);
             } catch(Exception e){
                 env.getLogger().log(Level.INFO, "Add file", e);
-                e.printStackTrace();
             }
         }
     }
