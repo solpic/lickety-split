@@ -20,10 +20,11 @@ public class ShareableFile extends File{
                 if (chunk > 0) offset = this.getOffset(chunk); //RENAME, offset is misnomer
                 int spaceNeeded = this.getSpaceNeeded(chunk, offset);
                 byte[] bytes = new byte[spaceNeeded];
-                RandomAccessFile raf = new RandomAccessFile(this, "r");
-                raf.seek(chunk * DownloadManager.chunkLengthRaw);
-                raf.readFully(bytes);
-                raf.close();
+                RandomAccessFile raf = FileAssembler.FileAccessor.getFile(this.getAbsolutePath());
+                synchronized (raf) {
+                    raf.seek(chunk * DownloadManager.chunkLengthRaw);
+                    raf.readFully(bytes);
+                }
                 return bytes;
             } catch (OutOfMemoryError e) {
                 env.log(

@@ -6,10 +6,14 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 public class FileAssembler implements Runnable{
 
@@ -24,7 +28,7 @@ public class FileAssembler implements Runnable{
 
     public File downloadToPath;
     DownloadManager mgr;
-    public FileAssembler(FileInfo fileInfo, Environment env, int lengthInChunks, IsFinished isFinished, DownloadManager mgr) throws IOException {
+    public FileAssembler(FileInfo fileInfo, Environment env, int lengthInChunks, IsFinished isFinished, DownloadManager mgr) throws Exception {
         this.mgr = mgr;
         this.env = env;
         this.fileInfo = fileInfo;
@@ -34,7 +38,7 @@ public class FileAssembler implements Runnable{
         if(temp.exists())temp.delete();
         temp.createNewFile();
         downloadToPath = temp;
-        this.file = new RandomAccessFile(temp, "rw");
+        this.file = FileAccessor.getFile(temp.getAbsolutePath());
         this.file.setLength(fileInfo.getLength()); // Set file length to desired file's length
         this.chunks = new LinkedBlockingQueue<Chunk>();
         this.completed = new HashSet<Integer>();
@@ -53,10 +57,61 @@ public class FileAssembler implements Runnable{
             return -1;
         }
     }
+
+    public static class FileAccessor {
+        private static AtomicBoolean hasInit = new AtomicBoolean(false);
+        public static void init() {
+            if(hasInit.get()) return;
+            synchronized (hasInit) {
+                if(hasInit.get()) return;
+                files = new ConcurrentHashMap<>();
+                startCloserThread();
+                hasInit.set(true);
+            }
+        }
+        static void startCloserThread() {
+            new Thread(() -> {
+
+            }).start();
+        }
+        public static class RAFObj {
+            public RandomAccessFile f;
+            public long lastAccess;
+            public RAFObj() {}
+        }
+        private static ConcurrentHashMap<String, RAFObj> files;
+        public static RandomAccessFile getFile(String path) throws Exception {
+            init();
+
+            if(!files.containsKey(path)) {
+                files.putIfAbsent(path, new RAFObj());
+            }
+            RAFObj raf = files.get(path);
+            synchronized (raf) {
+                raf.lastAccess = System.currentTimeMillis();
+                if(raf.f==null) {
+                    raf.f = new RandomAccessFile(path, "rw");
+                }
+                return raf.f;
+            }
+        }
+    }
+
     public AtomicLong totalChunks = new AtomicLong(0);
     public AtomicLong chunksDownloaded = new AtomicLong(0);
     public int chunkSize() {
         return DownloadManager.chunkLengthRaw;
+    }
+    void addToCompleted(int chunk) {
+        synchronized (completed) {
+            completed.add(chunk);
+        }
+    }
+
+    ArrayList<Integer> getCompleted() {
+        synchronized (completed) {
+            return new ArrayList(completed.stream().collect(Collectors.toList()));
+        }
     }
     @Override
     public void run() {
@@ -72,9 +127,11 @@ public class FileAssembler implements Runnable{
                     if(chunk.chunk == -1) return; //Download canceled
                     if(!this.completed.contains(chunk.chunk)) {
                         if(chunk.bytes!=null) {
-                            this.file.seek(chunk.chunk * DownloadManager.chunkLengthRaw);
-                            this.file.write(chunk.bytes);
-                            this.completed.add(chunk.chunk);
+                            synchronized(this.file) {
+                                this.file.seek(chunk.chunk * DownloadManager.chunkLengthRaw);
+                                this.file.write(chunk.bytes);
+                            }
+                            addToCompleted(chunk.chunk);
                             this.numOfChunks++;
                             chunksDownloaded.set(this.numOfChunks);
                             lastChunkWritten.set(System.currentTimeMillis());
@@ -94,7 +151,6 @@ public class FileAssembler implements Runnable{
                         }
                     }
                     this.isFinished.setFinished(true);
-                    this.file.close();
                     env.log("FINISHED AND PERFECT to "+downloadToPath);
                     return;
                 }

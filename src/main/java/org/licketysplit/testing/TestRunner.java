@@ -204,7 +204,7 @@ public class TestRunner {
         for (int i = 0; i < data.length; i++) {
 
             str.append(String.format("%d", (int)data[i]));
-            if(i<data.length-1) str.append(", ");
+            if(i<data.length-1) str.append("\n");
         }
         return str.toString();
     }
@@ -230,36 +230,39 @@ public class TestRunner {
         long waitAfterCheck = 10000;
         int changeCycle = 0;
         Thread.sleep(10000);
+        lastChange += 10000;
 
         String[] path = new String[]{""};
-        env.getDebug().setTrigger("chunk", (Object ...args) -> {
-            new Thread(() -> {
-                try {
-                    byte[] data = (byte[]) args[0];
-                    int chunk = (int) args[1];
-                    SecureSocket conn = (SecureSocket) args[2];
-
-
-                    RandomAccessFile rw = new RandomAccessFile(path[0], "r");
-                    byte[] orig = new byte[data.length];
-                    rw.seek(chunk* DownloadManager.chunkLengthRaw);
-                    rw.readFully(orig);
-                    rw.close();
-
-                    if(compareByteFiles(orig, data)) {
-                        env.getLogger().trigger("print",
-                                String.format(
-                                        "Chunk #%d not equal, sent from %s to %s:\nORIG: %d\nREC: %d",
-                                        chunk, conn.peerUsername, env.getUserInfo().getUsername(),
-                                        bytesToRepr(orig),
-                                        bytesToRepr(data)
-                                ));
-                    }
-                }catch(Exception e) {
-                    env.log("Comp", e);
-                }
-            }).start();
-        });
+//        env.getDebug().setTrigger("chunk", (Object ...args) -> {
+//            new Thread(() -> {
+//                try {
+//                    byte[] data = (byte[]) args[0];
+//                    int chunk = (int) args[1];
+//                    SecureSocket conn = (SecureSocket) args[2];
+//
+//
+//                    RandomAccessFile rw = new RandomAccessFile(path[0], "r");
+//                    byte[] orig = new byte[data.length];
+//                    rw.seek(chunk* DownloadManager.chunkLengthRaw);
+//                    rw.readFully(orig);
+//                    rw.close();
+//
+//                    if(!compareByteFiles(orig, data)) {
+//                        File diff = Files.createTempFile("diff", null).toFile();
+//                        FileUtils.writeStringToFile(diff,
+//                                String.format("ORIGINAL\n%s\nREC\n%s", bytesToRepr(orig), bytesToRepr(data)), "UTF-8");
+//                        env.getLogger().trigger("print",
+//                                String.format(
+//                                        "Chunk #%d not equal, sent from %s to %s, diff: %s",
+//                                        chunk, conn.peerUsername, env.getUserInfo().getUsername(),
+//                                        diff.getAbsolutePath()
+//                                ));
+//                    }
+//                }catch(Exception e) {
+//                    env.log("Comp", e);
+//                }
+//            }).start();
+//        });
         while(true) {
             int changeCount = 1 + changeCycle*5;
             for (int i = 0; i < 1; i++) {
@@ -267,8 +270,8 @@ public class TestRunner {
                         env,
                         r,
                         5000,
-                        1024*1024*400,
                         1024*1024*800,
+                        1024*1024*1000,
                         users
                 );
                 path[0] = change.tmpPath;

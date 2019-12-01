@@ -38,7 +38,7 @@ public class DownloadManager implements Runnable {
     private ArrayList<Integer> completedChunks;
     private File downloadToPath;
 
-    public DownloadManager(FileInfo fileInfo, Environment env, UpdateDownloads updateDownloads, Object doneLock) throws IOException {
+    public DownloadManager(FileInfo fileInfo, Environment env, UpdateDownloads updateDownloads, Object doneLock) throws Exception {
         this.doneLock = doneLock;
         IsFinished isFinished = (boolean finish) -> {
             this.isFinished.set(finish);
@@ -225,7 +225,7 @@ public class DownloadManager implements Runnable {
         return shuffledList.get(new Random(System.currentTimeMillis()).nextInt(shuffledList.size()));
     }
 
-    public static final int chunkLengthRaw = 1024*500;
+    public static final int chunkLengthRaw = 500*1024;//1024*500;
 
     private int getLengthInChunks(FileInfo fileInfo){
         double chunkLength = chunkLengthRaw;
@@ -265,7 +265,7 @@ public class DownloadManager implements Runnable {
     }
 
     public ArrayList<Integer> getCompletedChunks(){
-        return this.completedChunks;
+        return this.fileAssembler.getCompleted();
     }
 
     public void setUserToAvailable(UserInfo user){
