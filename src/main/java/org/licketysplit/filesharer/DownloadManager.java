@@ -345,7 +345,8 @@ public class DownloadManager implements Runnable {
         String md5 = env.getSyncManager().getMD5(downloadToPath);
         String compMD5 = this.fileAssembler.getFileInfo().md5;
         this.fileAssembler.cancel();
-        if(md5.equals(compMD5)&&!isCanceled.get()) {
+        boolean md5Equals = md5.equals(compMD5);
+        if(true&&!isCanceled.get()) {
             this.env.getLogger().log(Level.INFO, "FINISHED FILE " + this.fileAssembler.getFileInfo().getName());
             this.env.getLogger().trigger("download-complete", this.fileAssembler.getFileInfo().getName());
             this.updateDownloads.update();
