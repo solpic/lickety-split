@@ -217,6 +217,8 @@ public class TestRunner {
         return count;
     }
 
+    public static int fileMB = 500;
+
     List<FileChange> changes = new ArrayList<>();
     void runMain(Environment env, int usernumber, String localPath) throws Exception{
         env.getLogger().log(Level.INFO, String.format("I am user number %d", usernumber));
@@ -233,50 +235,24 @@ public class TestRunner {
         lastChange += 10000;
 
         String[] path = new String[]{""};
-//        env.getDebug().setTrigger("chunk", (Object ...args) -> {
-//            new Thread(() -> {
-//                try {
-//                    byte[] data = (byte[]) args[0];
-//                    int chunk = (int) args[1];
-//                    SecureSocket conn = (SecureSocket) args[2];
-//
-//
-//                    RandomAccessFile rw = new RandomAccessFile(path[0], "r");
-//                    byte[] orig = new byte[data.length];
-//                    rw.seek(chunk* DownloadManager.chunkLengthRaw);
-//                    rw.readFully(orig);
-//                    rw.close();
-//
-//                    if(!compareByteFiles(orig, data)) {
-//                        File diff = Files.createTempFile("diff", null).toFile();
-//                        FileUtils.writeStringToFile(diff,
-//                                String.format("ORIGINAL\n%s\nREC\n%s", bytesToRepr(orig), bytesToRepr(data)), "UTF-8");
-//                        env.getLogger().trigger("print",
-//                                String.format(
-//                                        "Chunk #%d not equal, sent from %s to %s, diff: %s",
-//                                        chunk, conn.peerUsername, env.getUserInfo().getUsername(),
-//                                        diff.getAbsolutePath()
-//                                ));
-//                    }
-//                }catch(Exception e) {
-//                    env.log("Comp", e);
-//                }
-//            }).start();
-//        });
         while(true) {
             int changeCount = 1 + changeCycle*5;
             for (int i = 0; i < 1; i++) {
+                float mb = fileMB;
+                if(usernumber==0)env.getLogger().trigger("print", "Creating change file");
                 FileChange change = FileChange.randomCreate(
                         env,
                         r,
                         5000,
-                        1024*1024*800,
-                        1024*1024*1000,
+                        (int)(1024*1024*mb),
+                        (int)(1024*1024*mb)+100,
                         users
                 );
+                if(usernumber==0)env.getLogger().trigger("print", "Done Creating change file");
                 path[0] = change.tmpPath;
                 applyChange(change);
                 lastChange += change.delay;
+                change.userNumber = 0;
                 long startChangeAt = lastChange;
 
 
@@ -284,10 +260,12 @@ public class TestRunner {
                     new Thread(() -> {
                         try {
                             long diff = startChangeAt - System.currentTimeMillis();
+                            if(usernumber==0) env.getLogger().trigger("print",
+                                    String.format("Starting test in %d", diff));
                             if(diff>0)
                                 Thread.sleep(diff);
 
-                            env.getLogger().trigger("print", String.format("User number %d initiating change", usernumber));
+                            env.getLogger().trigger("start-test", "ok");
                             if(change.create) {
                                 SyncManager sm = env.getSyncManager();
                                 sm.addFile(change.tmpPath);

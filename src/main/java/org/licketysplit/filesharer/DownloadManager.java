@@ -94,7 +94,6 @@ public class DownloadManager implements Runnable {
 
     void startProgressWatcher() {
         int waitPeriod = 10000;
-        int stopAfterTime = 30000;
         String fname = fileAssembler.getFileInfo().getName();
         new Thread(() -> {
             int sleepTime = 1000;
@@ -109,6 +108,7 @@ public class DownloadManager implements Runnable {
                     float progress = (float)chunksDownloaded/(float)totalChunks;
                     float speed = (float)((chunksDownloaded-chunksDownloadedInitial)*fileAssembler.chunkSize()*1000.0f)/((float)sleepTime);
                     setProgress(progress);
+                    env.getLogger().trigger("progress", progress);
                     setSpeed(speed);
                     env.log(String.format(
                             "Download progress for '%s': %f%%, speed: %f KB/s",
@@ -122,24 +122,20 @@ public class DownloadManager implements Runnable {
             }
             env.getFM().triggerGUIChanges();
         }).start();
+        int stopAfterTime = 30000;
         new Thread(() -> {
             long lastChunkWritten = System.currentTimeMillis();
+            long chunksDownloaded = fileAssembler.chunksDownloaded.get();
             while(!isFinished.get() && !isCanceled.get()) {
                 try {
-                    long l = fileAssembler.getLastChunkWrittenTime();
-                    if(l!=-1) {
-                        lastChunkWritten = l;
-                    }
-                    long failureTime = lastChunkWritten+stopAfterTime;
-                    long diff = failureTime -  System.currentTimeMillis();
-                    if(diff>0) {
-                        Thread.sleep(diff);
-                    }
-                    if(failureTime-fileAssembler.getLastChunkWrittenTime()>stopAfterTime) {
-                        env.log("Failing "+fname+" because stopped");
-                        failBecauseStopped();
-                        return;
-                    }
+                        Thread.sleep(20000);
+                        long nChunks = fileAssembler.chunksDownloaded.get();
+                        if(nChunks>chunksDownloaded) {
+                            chunksDownloaded = nChunks;
+                        }else{
+                            failBecauseStopped();
+                            return;
+                        }
                 } catch(Exception e) {
                     env.getLogger().log(Level.INFO,
                             "Exception in progress watcher for "+fname, e);
@@ -173,23 +169,27 @@ public class DownloadManager implements Runnable {
                         this.remove(chunk);
                         this.addToCompleted(chunk);
                         this.sendDownloadRequest(chunk, user, peer);
+                    }else {
                         counter++;
                     }
+                }else{
+                    counter++;
                 }
                 int maxPending = 1000;
                 int chunkCancelMilliseconds = 10000;
-                if(pendingCount.get()>maxPending) {
+                if(pendingCount.get()>maxPending||counter>200) {
+                    counter = 0;
                     Thread.sleep(5000);
-                }
-                boolean changed = false;
-                Set<Map.Entry<Integer, Long>> entries = pendingChunks.entrySet();
-                long curTime = System.currentTimeMillis();
-                for (Map.Entry<Integer, Long> entry : entries) {
-                    if(entry.getValue()+chunkCancelMilliseconds<curTime) {
-                        changed = true;
-                        this.getNecessaryAndAvailableChunks().remove(entry.getKey());
-                        this.pendingChunks.remove(entry.getKey());
-                        this.pendingCount.set(pendingChunks.size());
+                    boolean changed = false;
+                    Set<Map.Entry<Integer, Long>> entries = pendingChunks.entrySet();
+                    long curTime = System.currentTimeMillis();
+                    for (Map.Entry<Integer, Long> entry : entries) {
+                        if (entry.getValue() + chunkCancelMilliseconds < curTime) {
+                            changed = true;
+                            this.getNecessaryAndAvailableChunks().remove(entry.getKey());
+                            this.pendingChunks.remove(entry.getKey());
+                            this.pendingCount.set(pendingChunks.size());
+                        }
                     }
                 }
 
@@ -335,7 +335,6 @@ public class DownloadManager implements Runnable {
             ChunkDownloadResponse decodedMessage = m.getMessage();
             if(this.dManager.isFinished()) return;
             this.dManager.getFileAssembler().saveChunk(decodedMessage.data, this.chunk);
-            m.getEnv().getDebug().trigger("chunk", decodedMessage.data, this.chunk, m.getConn());
             this.dManager.onChunkCompleted(this.chunk, this.userInfo);
         }
     }
@@ -348,7 +347,7 @@ public class DownloadManager implements Runnable {
         this.fileAssembler.cancel();
         if(md5.equals(compMD5)&&!isCanceled.get()) {
             this.env.getLogger().log(Level.INFO, "FINISHED FILE " + this.fileAssembler.getFileInfo().getName());
-            this.env.getDebug().trigger("download-complete", this.fileAssembler.getFileInfo().getName());
+            this.env.getLogger().trigger("download-complete", this.fileAssembler.getFileInfo().getName());
             this.updateDownloads.update();
             env.getFS().cancelOrFinish(this.fileAssembler.getFileInfo());
         }else if(!isCanceled.get()){

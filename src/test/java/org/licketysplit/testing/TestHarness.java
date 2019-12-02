@@ -391,6 +391,7 @@ public class TestHarness {
 
     P2PTestInfo createAndUploadFiles(long remoteCount, long localCount, String runcmd, boolean shouldRedeploy, boolean localThreaded
     , boolean exitAfterStart) throws Exception {
+        cleanAllRunning();
         jarPath = System.getProperty("jarPath");
         String _testDataPath = "test-data";
         String _testingFolder = "test-data-root";
@@ -642,7 +643,6 @@ public class TestHarness {
     }
 
     HashMap<String, String> downloadLogsRetry(List<TestNetworkManager.PeerGenInfo> peers, String logFolder, int retries) throws Exception {
-        testStatusLogger.log(Level.INFO, "Downloading logs");
         try {
             return downloadLogs(peers, logFolder);
         } catch(Exception e) {
@@ -653,7 +653,6 @@ public class TestHarness {
                 e.printStackTrace();
             }
         }
-        testStatusLogger.log(Level.INFO, "Downloaded logs");
         return null;
     }
 

@@ -109,6 +109,11 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         if (peers.containsKey(peer)) return;
         if(peers.keySet().stream().filter(e->e.getUsername().equals(username)).count()>0) {
             env.log(String.format("Peer already connected '%s', abort", username));
+            try {
+                throw new Exception("See stack");
+            }catch(Exception e) {
+                env.log("Aborting retry", e);
+            }
             return;
         }else{
             env.log(String.format("Not connected to '%s', continuing", username));
@@ -172,7 +177,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         synchronized (peers) {
             for (Map.Entry<UserInfo, SecureSocket> peerEntry : peers.entrySet()) {
                 if(peerEntry.getKey().getUsername().equals(username)) {
-                    peerEntry.getValue().close();
+                    peerEntry.getValue().close(false);
                     peers.remove(peerEntry.getKey());
                     break;
                 }
@@ -300,6 +305,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         // Receive public key
         String toUser = "unknown";
         boolean hasUsername = false;
+        SecureSocket sock = m.getConn();
         SecureSocket.TimeoutException exceptor = () -> {
             throw new Exception("Message timed out");
         };
@@ -388,6 +394,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
                     String.format("Handshaking error"),
                     e
             );
+            sock.close(false);
             if(hasUsername) {
                 retryAddPeer(peerFromUsername(toUser));
             }
@@ -518,6 +525,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
             } catch (Exception e) {
                 env.getLogger().log(Level.INFO, "Handshake error", e);
                 e.printStackTrace();
+                sock.close(false);
                 if (hasUsername) {
                     retryAddPeer(peerFromUsername(toUser));
                 }

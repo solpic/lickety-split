@@ -110,13 +110,4 @@ public class SyncManager {
     public HashMap<String, DownloadManager> getDownloads(){
         return this.env.getFS().getDownloads();
     }
-
-    public void syncManifests(String exclude) throws Exception{
-        JSONObject manifest = this.env.getFM().getManifest();
-
-        ConcurrentHashMap<UserInfo, SecureSocket> peers = this.env.getPm().getPeers();
-        for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
-            if(!peer.getKey().getUsername().equals(exclude))  peer.getValue().sendFirstMessage(new UpdateManifestRequest(manifest), null);
-        }
-    }
 }

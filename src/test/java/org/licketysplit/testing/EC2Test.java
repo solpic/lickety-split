@@ -1,5 +1,6 @@
 package org.licketysplit.testing;
 
+import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -9,9 +10,10 @@ import org.licketysplit.testing.TestHarness.P2PTestInfo;
 
 import java.io.File;
 import java.nio.file.Paths;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -31,24 +33,142 @@ public class EC2Test {
         Logger testStatus = TestHarness.fileAndConsoleLogger("testStatus", Paths.get("test-results.log").toString());
         testHarness.allLogs = allLogs;
         testHarness.testStatusLogger = testStatus;
-        ConcurrentHashMap<String, String> hasFiles = new ConcurrentHashMap<>();
-        int remoteCount = 20;
+        ConcurrentHashMap<String,Boolean> hasFiles = new ConcurrentHashMap<>();
+        int remoteCount = 10;
         int localCount = 0;
-        AtomicInteger running = new AtomicInteger(remoteCount + localCount);
-        Debugger.global().setTrigger("count", (Object ...args) -> {
-            running.decrementAndGet();
-            System.out.println("RUNNING: "+running.get());
-            if(running.get()==0) {
+        float mb = TestRunner.fileMB;
+        AtomicLong startTime = new AtomicLong();
+        Debugger.global().setTrigger("start-test", (Object ...args) -> {
+            startTime.set(System.currentTimeMillis());
+            testStatus.log(Level.INFO, String.format("Test starting!"));
+        });
+        class Progress {
+            public long curTime;
+            float progress;
+            String username;
+
+            public float sampleProgress(Map<String, List<Progress>> progressUpdates, long time, long actualStartTime) {
+                float sumProgress = 0.0f;
+                int count = 0;
+                for (Map.Entry<String, List<Progress>> userProgress : progressUpdates.entrySet()) {
+                    List<Progress> progresses = userProgress.getValue();
+                    Collections.sort(progresses, (a, b) -> {
+                        return (int)(a.curTime - b.curTime);
+                    });
+                    Progress start = null;
+                    Progress end = null;
+                    Progress tmpStart = progresses.get(0);
+                    if(tmpStart.curTime>time) {
+                        sumProgress += tmpStart.progress;
+                        count++;
+                        continue;
+                    }
+                    Progress tmpEnd = progresses.get(progresses.size() - 1);
+                    if(tmpEnd.curTime<time) {
+                        sumProgress += 1.0f;
+                        count++;
+                        continue;
+                    }
+                    for (int i = 0; i < progresses.size(); i++) {
+                        Progress cur = progresses.get(i);
+                        if(cur.curTime>=time) {
+                            end = cur;
+                            if(i>0) start = progresses.get(i-1);
+                             i =progresses.size();
+                        }
+                    }
+                    float startProgress = 0.0f;
+                    if(start!=null) startProgress = start.progress;
+                    if(end!=null) {
+                        long startTime = actualStartTime;
+                        if(start!=null) startTime = start.curTime;
+                        long endTime = end.curTime;
+                        float endProgress = end.progress;
+                        float timeDiffNormalized = ((float)(time-startTime))/((float)(endTime-startTime));
+
+                        float progress = timeDiffNormalized*endProgress + (1.0f-timeDiffNormalized)*startProgress;
+                        sumProgress += progress;
+                        count++;
+                    }
+
+                }
+
+                float v = sumProgress/count;
+                return v;
+            }
+        }
+        Map<String, List<Progress>> progressUpdates = new HashMap<>();
+        Debugger.global().setTrigger("progress", (Object ...args) -> {
+            String username = (String)args[0];
+            float progress = new Float(((Double)args[1]));
+            long curTime = System.currentTimeMillis();
+
+            Progress p = new Progress();
+            p.curTime = curTime;
+            p.username = username;
+            p.progress = progress;
+            synchronized (progressUpdates) {
+                if(!progressUpdates.containsKey(username)) {
+                    progressUpdates.put(username, new LinkedList<Progress>());
+                }
+                List<Progress> progresses = progressUpdates.get(username);
+                progresses.add(p);
+            }
+            testStatus.log(Level.INFO, String.format("%s has completed %f%%", username, progress*100));
+        });
+        Debugger.global().setTrigger("download-complete", (Object ...args) -> {
+            String username = (String)args[0];
+            hasFiles.putIfAbsent(username, true);
+            testStatus.log(Level.INFO, String.format(
+                    "%d out of %d have completed downloads", hasFiles.size(), (remoteCount+localCount-1)
+            ));
+            if(hasFiles.size()==(remoteCount+localCount-1)) {
+                long curTime = System.currentTimeMillis();
+                synchronized (progressUpdates){
+                    for (Map.Entry<String, List<Progress>> entry : progressUpdates.entrySet()) {
+                        Progress p = new Progress();
+                        p.curTime = curTime;
+                        p.progress = 1.0f;
+                        p.username = entry.getKey();
+                        entry.getValue().add(p);
+                    }
+                }
+                long elapsed = curTime - startTime.get();
+
+                testStatus.log(Level.INFO, String.format(
+                        "Test finished, total elapsed time: %f minutes, file size: %f MB, downloading peers: %d",
+                        (((float)elapsed)/(1000*60)),
+                        mb,
+                        (remoteCount+localCount-1)));
+
+                Progress p = new Progress();
+                StringBuilder data = new StringBuilder();
+                data.append("Progress %, Download Speed MB/s, Time (seconds), Total Peers, File Size (MB)\n");
+                float lastSampled = 0.0f;
+                long diff = elapsed/100;
+                for(long tm = startTime.get(); tm<=curTime; tm += diff) {
+                    float sampledProgress = p.sampleProgress(progressUpdates, tm, startTime.get());
+                    float sampledSpeed = (sampledProgress-lastSampled)*mb*1000.0f/((float)diff);
+                    data.append(String.format(
+                            "%f, %f, %f, %d, %f\n",
+                            sampledProgress*100.0f, sampledSpeed, (tm-startTime.get())/1000.0f,
+                            (remoteCount+localCount-1),
+                            mb
+                    ));
+                    lastSampled = sampledProgress;
+                }
+
+                File testOutput = new File("test-output.csv");
                 try {
-                    testHarness.finish();
-                } catch (Exception e) {
+                    if(!testOutput.exists()) testOutput.createNewFile();
+                    FileUtils.writeStringToFile(testOutput, data.toString(), "UTF-8");
+                } catch(Exception e) {
                     e.printStackTrace();
                 }
             }
         });
         testHarness.cleanAllRunning();
         TestHarness.P2PTestInfo results = testHarness.generateNetwork(remoteCount, localCount, "peerstart", shouldRedeploy(), localThreaded(), false);
-        assertEquals(running.get(), 0);
     }
 
     @Test
@@ -60,8 +180,7 @@ public class EC2Test {
         testHarness.allLogs = allLogs;
         testHarness.testStatusLogger = testStatus;
         ConcurrentHashMap<String, String> hasFiles = new ConcurrentHashMap<>();
-        int remoteCount = 5;
-        testHarness.cleanAllRunning();
+        int remoteCount = 10;
         TestHarness.P2PTestInfo results = testHarness.generateNetwork(remoteCount, 1, "headless", shouldRedeploy(), localThreaded(), true);
     }
 

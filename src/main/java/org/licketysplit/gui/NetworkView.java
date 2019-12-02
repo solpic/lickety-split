@@ -127,6 +127,18 @@ public class NetworkView extends JPanel {
         }
 
         menu.addSeparator();
+        JMenuItem refreshItem = new JMenuItem("Refresh");
+
+        refreshItem.addActionListener((a) -> {
+            SwingUtilities.invokeLater(() -> {
+                try {
+                    env.getSyncManager().syncManifests();
+                } catch(Exception e) {
+                    e.printStackTrace();
+                }
+            });
+        });
+        menu.add(refreshItem);
         JMenuItem disconnectItem = new JMenuItem("Exit");
         disconnectItem.addActionListener((e) -> {
             SwingUtilities.invokeLater(() -> {
@@ -583,7 +595,7 @@ public class NetworkView extends JPanel {
 
     public static void main(String[] args) {
         try {
-            //UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         }catch(Exception e) {
             e.printStackTrace();
         }

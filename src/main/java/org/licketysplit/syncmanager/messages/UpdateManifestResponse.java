@@ -41,7 +41,7 @@ public class UpdateManifestResponse extends Message {
 
                 if(changed) {
                     env.log("Changes, propagating manifest");
-                    env.getSyncManager().syncManifests(m.getConn().getPeerAddress().getUser().getUsername());
+                    env.getSyncManager().syncManifests();
                 }else{
                     env.log("No manifest changes");
                 }

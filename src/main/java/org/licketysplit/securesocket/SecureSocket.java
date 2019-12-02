@@ -75,14 +75,14 @@ public class SecureSocket {
     }
 
     boolean shouldClose = false;
-    public void close(){
+    public void close(boolean failure){
         try {
             in.close();
             out.close();
             socket.close();
             shouldClose = true;
-            if(userInfo!=null)
-            env.getPm().retryAddPeer(env.getPm().peerFromUsername(userInfo.getUsername()));
+            if(userInfo!=null&&failure)
+                env.getPm().retryAddPeer(env.getPm().peerFromUsername(userInfo.getUsername()));
         }catch(Exception e) {
             env.getLogger().log(Level.INFO, "Error closing socket", e);
         }
@@ -186,7 +186,7 @@ public class SecureSocket {
             socketErrorCount++;
             if(socketErrorCount>4) {
                 try {
-                    close();
+                    close(true);
                 }
                 catch(Exception e) {
                     env.getLogger().log(Level.SEVERE, "Couldn't close socket");
@@ -287,7 +287,7 @@ public class SecureSocket {
                     messageHandler.handle(new ReceivedMessage(msg, SecureSocket.this, responseId, env));
                     if(showDetailedDebug) log.log(Level.OFF, "Done calling response handler");
                 } catch(EOFException e) {
-                    close();
+                    close(false);
                 }
                 catch (Exception e) {
 //                    int payloadLength = payload!=null?payload.length:0;

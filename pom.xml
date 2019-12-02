@@ -14,6 +14,7 @@
         <use.localthreaded>no</use.localthreaded>
         <package.command>none</package.command>
         <jar.path>none</jar.path>
+        <testFileSize>2000</testFileSize>
     </properties>
 
     <profiles>
@@ -148,6 +149,7 @@
                         <shouldRedeploy>${should.redeploy}</shouldRedeploy>
                         <useLocalThreaded>${use.localthreaded}</useLocalThreaded>
                         <packageCommandString>${package.command}</packageCommandString>
+                        <test.fileSize>${testFileSize}</test.fileSize>
                         <jarPath>${jar.path}</jarPath>
                     </systemPropertyVariables>
                 </configuration>

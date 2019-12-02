@@ -89,7 +89,7 @@ public class FileSharer {
         cancelOrFinish(fileInfo);
     }
 
-    Retrier downloadRetrier = new Retrier(new int[]{5000, 10000, 15000}, 30000);
+    Retrier downloadRetrier = new Retrier(new int[]{5000, 10000, 15000, 20000, 30000}, 30000);
 
     public void download(FileInfo fileInfo){
         new Thread(() -> {
