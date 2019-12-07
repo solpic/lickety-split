@@ -17,11 +17,24 @@ import java.security.KeyPair;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 
 public class PeerManager implements SecureSocket.NewConnectionCallback {
     Environment env;
     EnvLogger log;
     List<NewConnectionHandler> onConnectHandlers;
+
+    public void confirmClosed(SecureSocket secureSocket) {
+        for (Map.Entry<UserInfo, SecureSocket> peer : peers.entrySet()) {
+            if(peer.getValue()==secureSocket) {
+                peers.remove(peer.getKey());
+
+                env.changes.runHandler("peerlist-changed", peers.size());
+                return;
+            }
+        }
+    }
+
     public static class ServerInfo {
         int port;
         String ip;
@@ -68,7 +81,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
     }
     public void setEnv(Environment env) {
         this.env = env;
-        this.retry.env = env;
+//        this.retry.env = env;
         log = this.env.getLogger();
     }
 
@@ -77,10 +90,10 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         if (peer.getServerInfo() == null) return;
         // First check that we should connect
         if (peer.getUser().getUsername().equals(env.getUserInfo().getUsername())) return;
-        env.log(String.format("Connecting to %s, I am %s %b",
-                peer.getUser().getUsername(),
-                env.getUserInfo().getUsername(),
-                peer.getUser().getUsername().equals(env.getUserInfo().getUsername())));
+//        env.log(String.format("Connecting to %s, I am %s %b",
+//                peer.getUser().getUsername(),
+//                env.getUserInfo().getUsername(),
+//                peer.getUser().getUsername().equals(env.getUserInfo().getUsername())));
 
         if (peers.containsKey(peer)) return;
         for (Map.Entry<UserInfo, SecureSocket> peerInfo : peers.entrySet()) {
@@ -92,14 +105,10 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         newConnectionHandler(peer.getUser().getUsername(), SecureSocket.connect(peer, env), false);
     }
 
-    Retrier retry = new Retrier(new int[]{5000, 5000, 5000, 5000, 5000, 10000, 10000, 10000, 20000, 20000, 20000, 20000}, 60000);
+//    Retrier retry = new Retrier(new int[]{5000, 5000, 5000, 5000, 5000, 10000, 10000, 10000, 20000, 20000, 20000, 20000}, 60000);
 
-    private void addPeerWrapper(PeerAddress peer, boolean firstTry) throws Exception {
+    private void connectToPeer(PeerAddress peer) throws Exception {
         String username = peer.getUser().getUsername();
-        env.log(String.format("Connecting to %s, I am %s %b",
-                peer.getUser().getUsername(),
-                env.getUserInfo().getUsername(),
-                peer.getUser().getUsername().equals(env.getUserInfo().getUsername())));
         if (peer.getServerInfo() == null) {
             return;
         }
@@ -120,9 +129,7 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         }
         new Thread(() -> {
             try {
-                if(retry.tryOrRetry(peer.getUser().getUsername(), true)) {
                     createSocketAndConnect(peer);
-                }
             } catch(Exception e) {
                 env.getLogger().log(Level.INFO,
                         "Error starting addPeer",
@@ -131,13 +138,13 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         }).start();
     }
 
-    public void retryAddPeer(PeerAddress peer) throws Exception {
-        addPeerWrapper(peer, false);
-    }
-
-    public void addPeer(PeerAddress peer) throws Exception {
-        addPeerWrapper(peer, true);
-    }
+//    public void retryAddPeer(PeerAddress peer) throws Exception {
+//        addPeerWrapper(peer, false);
+//    }
+//
+//    public void addPeer(PeerAddress peer) throws Exception {
+//        addPeerWrapper(peer, true);
+//    }
 
     public static class SyncInfoDir extends JSONMessage {
         PeerInfoDirectory info;
@@ -169,10 +176,10 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         }
     }
 
-    public void newPeer(String username) throws Exception {
-        addPeer(peerFromUsername(username));
-        messageAllPeers(new SyncInfoDir(env.getInfo()), null);
-    }
+//    public void newPeer(String username) throws Exception {
+//        addPeer(peerFromUsername(username));
+//        messageAllPeers(new SyncInfoDir(env.getInfo()), null);
+//    }
     public void userBanned(String username) throws Exception {
         synchronized (peers) {
             for (Map.Entry<UserInfo, SecureSocket> peerEntry : peers.entrySet()) {
@@ -201,25 +208,46 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
         }).start();
     }
 
+    void connectToPeersInThread() {
+        new Thread(() -> {
+            do {
+                try {
+                    List<String> connectedPeers = peers.keySet().stream().map(e -> e.getUsername()).collect(Collectors.toList());
+                    List<PeerAddress> peerAddresses = env.getInfo().getPeers().entrySet().stream().map(e -> e.getValue().convertToPeerAddress()).collect(Collectors.toList());
+
+                    for (PeerAddress peerAddress : peerAddresses) {
+                        if (!connectedPeers.contains(peerAddress.getUser().getUsername())) {
+                            connectToPeer(peerAddress);
+                        }
+                    }
+                    Thread.sleep(10000);
+                }catch(Exception e) {
+                    env.getLogger().log("Error during peer connector thread", e);
+                }
+            } while(true);
+        }).start();
+    }
+
     public void start() throws Exception {
         new Thread(() -> {
             try {
                 env.getLogger().log("Starting peer manager");
                 listenInNewThread();
-
-                Map<String, PeerInfoDirectory.PeerInfo> peers = env.getInfo().getPeers();
-                for (Map.Entry<String, PeerInfoDirectory.PeerInfo> peer : peers.entrySet()) {
-                    try {
-                        PeerAddress address = peer.getValue().convertToPeerAddress();
-                        addPeer(address);
-                    } catch(Exception e) {
-                        env.getLogger().log(Level.SEVERE,
-                                String.format("Couldn't connect to peer %s at ip %s, port %s",
-                                        peer.getValue().getUsername(),
-                                        peer.getValue().getServerIp(),
-                                        peer.getValue().getServerPort()), e);
-                    }
-                }
+                connectToPeersInThread();
+//
+//                Map<String, PeerInfoDirectory.PeerInfo> peers = env.getInfo().getPeers();
+//                for (Map.Entry<String, PeerInfoDirectory.PeerInfo> peer : peers.entrySet()) {
+//                    try {
+//                        PeerAddress address = peer.getValue().convertToPeerAddress();
+//                        addPeer(address);
+//                    } catch(Exception e) {
+//                        env.getLogger().log(Level.SEVERE,
+//                                String.format("Couldn't connect to peer %s at ip %s, port %s",
+//                                        peer.getValue().getUsername(),
+//                                        peer.getValue().getServerIp(),
+//                                        peer.getValue().getServerPort()), e);
+//                    }
+//                }
             }catch(Exception e) {
                 env.log("Error during start", e);
                 e.printStackTrace();
@@ -395,9 +423,9 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
                     e
             );
             sock.close(false);
-            if(hasUsername) {
-                retryAddPeer(peerFromUsername(toUser));
-            }
+//            if(hasUsername) {
+//                retryAddPeer(peerFromUsername(toUser));
+//            }
             return;
 //            e.printStackTrace();
 //            throw new Exception("Error handshaking with "+toUser);
@@ -526,9 +554,9 @@ public class PeerManager implements SecureSocket.NewConnectionCallback {
                 env.getLogger().log(Level.INFO, "Handshake error", e);
                 e.printStackTrace();
                 sock.close(false);
-                if (hasUsername) {
-                    retryAddPeer(peerFromUsername(toUser));
-                }
+//                if (hasUsername) {
+//                    retryAddPeer(peerFromUsername(toUser));
+//                }
                 throw new Exception("Error handshaking with " + toUser);
             }
         }

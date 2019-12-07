@@ -1,11 +1,2 @@
-- EC2
-    - Spin up instances
-    - Automate deployment?
-    - Test on instances
-        - Spin up instances
-        - Generate network and files
-            - IPs and ports assigned to hostnames after spin up
-            - Pick one host as root arbitrarily
-        - Upload info dirs and keyfiles to each host
-        - Start servers with SSH command
-        - Kill servers with SSH command
+- Retry on failed download
+- Fix cant select elements in table

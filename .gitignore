@@ -5,3 +5,9 @@ test-data/
 logs/
 remote-logs/
 test-logs/
+data/
+log*
+networks.txt
+random-file*
+test-output.csv
+

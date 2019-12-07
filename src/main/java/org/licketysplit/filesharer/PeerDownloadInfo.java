@@ -14,6 +14,10 @@ public class PeerDownloadInfo {
     private Random r;
     private boolean inUse;
 
+    public boolean hasChunk(int c) {
+        return peerChunkInfo.hasChunk(c);
+    }
+
     public PeerDownloadInfo(PeerChunkInfo peerChunkInfo, SecureSocket socket) {
         this.peerChunkInfo = peerChunkInfo;
         this.socket = socket;
@@ -29,6 +33,7 @@ public class PeerDownloadInfo {
     public boolean getInUse(){
         return this.inUse;
     }
+
 
     public int getRandomDesirableChunk(ArrayList<Integer> availableChunks){
         Set<Integer> availableChunkSet = new HashSet<Integer>(availableChunks);

@@ -133,8 +133,8 @@ public class DownloadManager implements Runnable {
                         if(nChunks>chunksDownloaded) {
                             chunksDownloaded = nChunks;
                         }else{
-                            failBecauseStopped();
-                            return;
+                            //failBecauseStopped();
+                            //return;
                         }
                 } catch(Exception e) {
                     env.getLogger().log(Level.INFO,
@@ -149,6 +149,50 @@ public class DownloadManager implements Runnable {
         }
     }
 
+    class PeerChunk {
+        PeerDownloadInfo info;
+        int chunk;
+        UserInfo user;
+    }
+
+    Random rand = new Random();
+    ArrayList<UserInfo> peerList = new ArrayList<>();
+    long shuffleCount = 0;
+    long shuffleMod = 100;
+    PeerChunk getNextPeerChunk() throws Exception {
+        synchronized (this.peers) {
+            ArrayList<Integer> necessaryAndAvailableChunks = this.getNecessaryAndAvailableChunks();
+            if(necessaryAndAvailableChunks.size()>0) {
+                int next = necessaryAndAvailableChunks.get(rand.nextInt(necessaryAndAvailableChunks.size()));
+
+                if (next >= 0) {
+                    if(shuffleCount%shuffleMod==0) {
+                        Collections.shuffle(peerList);
+                    }
+                    for (UserInfo user : peerList) {
+                        if(peers.containsKey(user)) {
+                            PeerDownloadInfo i = peers.get(user);
+                            if (i.hasChunk(next)) {
+                                PeerChunk peerChunk = new PeerChunk();
+                                peerChunk.info = i;
+                                peerChunk.chunk = next;
+                                peerChunk.user = user;
+
+                                peerList.remove(user);
+                                peerList.add(user);
+                                return peerChunk;
+                            }
+                        }
+                    }
+                    env.getLogger().log("Couldn't find chunk because no peers have it");
+                }else{
+                    env.getLogger().log("Couldn't find chunk because next returned -1");
+                }
+            }
+        }
+        return null;
+    }
+
     @Override
     public void run() {
         try {
@@ -161,23 +205,20 @@ public class DownloadManager implements Runnable {
             pendingChunks = new ConcurrentHashMap<>();
             pendingCount = new AtomicLong(0);
             int counter = 0;
+            updatePeerList();
             while(!isFinished.get() && !isCanceled.get()) {
-                if ((user = this.getFreeUser()) != null) {
-                    peer = this.getPeers().get(user);
-                    chunk = peer.getRandomDesirableChunk(this.getNecessaryAndAvailableChunks());
-                    if (chunk >=0) {
-                        this.remove(chunk);
-                        this.addToCompleted(chunk);
-                        this.sendDownloadRequest(chunk, user, peer);
-                    }else {
-                        counter++;
-                    }
+                PeerChunk next = getNextPeerChunk();
+                if(next!=null) {
+                    this.remove(next.chunk);
+                    this.addToCompleted(next.chunk);
+                    this.sendDownloadRequest(next.chunk, next.user, next.info);
                 }else{
                     counter++;
+                    Thread.sleep(500);
                 }
                 int maxPending = 1000;
                 int chunkCancelMilliseconds = 10000;
-                if(pendingCount.get()>maxPending||counter>200) {
+                if(pendingCount.get()>maxPending||counter>30) {
                     counter = 0;
                     Thread.sleep(5000);
                     boolean changed = false;
@@ -209,22 +250,6 @@ public class DownloadManager implements Runnable {
         return fileAssembler;
     }
 
-    private UserInfo getFreeUser(){
-        List<UserInfo> shuffledList = new ArrayList<UserInfo>( this.getPeers().keySet() );
-        Collections.shuffle( shuffledList );
-        for (UserInfo user: shuffledList) {
-           if(!this.getPeers().get(user).getInUse()){
-               return user;
-           }
-        }
-        return null;
-    }
-
-    private UserInfo getAnyUser() {
-        List<UserInfo> shuffledList = new ArrayList<UserInfo>( this.getPeers().keySet() );
-        return shuffledList.get(new Random(System.currentTimeMillis()).nextInt(shuffledList.size()));
-    }
-
     public static final int chunkLengthRaw = 500*1024;//1024*500;
 
     private int getLengthInChunks(FileInfo fileInfo){
@@ -242,9 +267,11 @@ public class DownloadManager implements Runnable {
             //env.getLogger().log(String.format("Peer %s has NO chunks", userInfo.getUsername()));
             return;
         }
-        this.peers.put(userInfo, new PeerDownloadInfo(peerInfo, socket)); //TODO(will) check if possible
+        synchronized (peers) {
+            this.peers.put(userInfo, new PeerDownloadInfo(peerInfo, socket)); //TODO(will) check if possible
+        }
         this.updateAvailableChunks(peerInfo);
-        this.makeUserAvailable(userInfo);
+        //this.makeUserAvailable(userInfo);
     }
 
     public ConcurrentHashMap<UserInfo, PeerDownloadInfo> getPeers(){
@@ -284,6 +311,7 @@ public class DownloadManager implements Runnable {
         newPeers.removeAll(currPeers);
         ArrayList<UserInfo> newPeersLs = new ArrayList<UserInfo>(newPeers);
         for (UserInfo peer: peers.keySet()) {
+            if(!peerList.contains(peer)) peerList.add(peer);
             peers.get(peer).sendFirstMessage(new ChunkAvailabilityRequest(this.fileAssembler.getFileInfo()), new FileSharer.ChunkAvailabilityRequestHandler(this, peer));
         }
     }
@@ -299,7 +327,7 @@ public class DownloadManager implements Runnable {
         this.pendingCount.set(pendingChunks.size());
     }
 
-    public void updateAvailableChunks(PeerChunkInfo peerChunkInfo){
+    public synchronized void updateAvailableChunks(PeerChunkInfo peerChunkInfo){
         ArrayList<Integer> newChunks = peerChunkInfo.getChunks();
         Set<Integer> chunks = new HashSet<Integer>(this.necessaryAndAvailableChunks);
         for(int i = 0; i < newChunks.size(); i++){
@@ -346,19 +374,27 @@ public class DownloadManager implements Runnable {
         String compMD5 = this.fileAssembler.getFileInfo().md5;
         this.fileAssembler.cancel();
         boolean md5Equals = md5.equals(compMD5);
-        if(true&&!isCanceled.get()) {
+        this.env.log(String.format("Finished: MD5 correct? -> %b", md5Equals));
+        if(md5Equals&&!isCanceled.get()) {
             this.env.getLogger().log(Level.INFO, "FINISHED FILE " + this.fileAssembler.getFileInfo().getName());
-            this.env.getLogger().trigger("download-complete", this.fileAssembler.getFileInfo().getName());
+            this.env.getLogger().trigger("download-complete", this.fileAssembler.getFileInfo().getName(), this.fileAssembler.totalChunks.get());
             this.updateDownloads.update();
             env.getFS().cancelOrFinish(this.fileAssembler.getFileInfo());
         }else if(!isCanceled.get()){
             this.hasFailed = true;
+            downloadToPath.delete();
             env.getFS().failed(this.fileAssembler.getFileInfo());
+            this.env.getLogger().trigger("download-failed", this.fileAssembler.getFileInfo().getName(), this.fileAssembler.totalChunks.get());
             this.env.getLogger().log(String.format("" +
                     "MD5's don't match, theirs: %s, ours %s, file download failed for %s",
                     compMD5, md5, this.fileAssembler.getFileInfo().getName()));
+            this.env.changes.runHandler("download-failed", this.fileAssembler.getFileInfo().getName());
         }else{
             env.getLogger().log("File download cancelled");
+            this.env.getLogger().trigger("download-cancelled", this.fileAssembler.getFileInfo().getName(), this.fileAssembler.totalChunks.get());
+            File downloadToPath = this.fileAssembler.downloadToPath;
+            downloadToPath.delete();
+            env.getFS().cancelOrFinish(this.fileAssembler.getFileInfo());
         }
 
         env.getFM().triggerDownloadUpdate(fileAssembler.getFileInfo());

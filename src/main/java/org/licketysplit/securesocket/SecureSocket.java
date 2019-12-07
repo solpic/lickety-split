@@ -81,8 +81,7 @@ public class SecureSocket {
             out.close();
             socket.close();
             shouldClose = true;
-            if(userInfo!=null&&failure)
-                env.getPm().retryAddPeer(env.getPm().peerFromUsername(userInfo.getUsername()));
+            env.getPm().confirmClosed(this);
         }catch(Exception e) {
             env.getLogger().log(Level.INFO, "Error closing socket", e);
         }
@@ -344,6 +343,7 @@ public class SecureSocket {
                     headers.putInt(classCode);
                     byte[] payloadBytes = null;
 
+                    if(payload==null) payload = new byte[0];
                     if (useEncryption) {
                         payloadBytes = cipher.encrypt(payload);
                     }else{

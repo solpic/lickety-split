@@ -23,7 +23,7 @@ public class SyncPeerListOnConnect implements NewConnectionHandler {
             for (PeerManager.PeerAddress peer : lst.getPeerList()) {
 
                 try {
-                    m.getEnv().getPm().addPeer(peer);
+//                    m.getEnv().getPm().addPeer(peer);
                 } catch(Exception e) {
                     env.getLogger().log(Level.SEVERE,
                             String.format("Couldn't connect to peer %s at ip %s, port %d",

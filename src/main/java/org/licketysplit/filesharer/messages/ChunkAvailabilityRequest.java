@@ -29,7 +29,7 @@ public class ChunkAvailabilityRequest extends JSONMessage {
             FileManager fm = env.getFM();
             //m.log("3");
             if( fm.hasFile(requestedFileName)) {
-                env.log("Has chunks");
+                env.log("Has chunks for "+requestedFileName);
                 try {
                     m.respond(new ChunkAvailabilityResponse(env, fm.getFile(requestedFileName), tstMsg.fileInfo), null);
                 } catch (Exception e) {

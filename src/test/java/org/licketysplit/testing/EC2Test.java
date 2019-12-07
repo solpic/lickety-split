@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.licketysplit.env.Debugger;
+import org.licketysplit.filesharer.DownloadManager;
 import org.licketysplit.securesocket.encryption.SymmetricCipher;
 import org.licketysplit.testing.TestHarness.P2PTestInfo;
 
@@ -26,7 +27,7 @@ public class EC2Test {
     }
 
     @Test
-    public void itWorks() throws Exception {
+    public void downloadSpeedTest() throws Exception {
         TestHarness testHarness = new TestHarness();
         P2PTestInfo hackMaster = new P2PTestInfo();
         Logger allLogs = TestHarness.fileOnlyLogger("allLogs", Paths.get("everything.log").toString());
@@ -167,7 +168,105 @@ public class EC2Test {
                 }
             }
         });
-        testHarness.cleanAllRunning();
+        if(remoteCount>0)
+            testHarness.cleanAllRunning();
+        TestHarness.P2PTestInfo results = testHarness.generateNetwork(remoteCount, localCount, "peerstart", shouldRedeploy(), localThreaded(), false);
+    }
+
+    @Test
+    public void sharingStressTest() throws Exception {
+        TestHarness testHarness = new TestHarness();
+        P2PTestInfo hackMaster = new P2PTestInfo();
+        Logger allLogs = TestHarness.fileOnlyLogger("allLogs", Paths.get("everything.log").toString());
+        Logger testStatus = TestHarness.fileAndConsoleLogger("testStatus", Paths.get("test-results.log").toString());
+        testHarness.allLogs = allLogs;
+        testHarness.testStatusLogger = testStatus;
+        int remoteCount = 10;
+        int localCount = 0;
+
+        class Progress {
+            public long curTime;
+            float progress;
+            String username;
+
+            public float sampleProgress(Map<String, List<Progress>> progressUpdates, long time, long actualStartTime) {
+                float sumProgress = 0.0f;
+                int count = 0;
+                for (Map.Entry<String, List<Progress>> userProgress : progressUpdates.entrySet()) {
+                    List<Progress> progresses = userProgress.getValue();
+                    Collections.sort(progresses, (a, b) -> {
+                        return (int)(a.curTime - b.curTime);
+                    });
+                    Progress start = null;
+                    Progress end = null;
+                    Progress tmpStart = progresses.get(0);
+                    if(tmpStart.curTime>time) {
+                        sumProgress += tmpStart.progress;
+                        count++;
+                        continue;
+                    }
+                    Progress tmpEnd = progresses.get(progresses.size() - 1);
+                    if(tmpEnd.curTime<time) {
+                        sumProgress += 1.0f;
+                        count++;
+                        continue;
+                    }
+                    for (int i = 0; i < progresses.size(); i++) {
+                        Progress cur = progresses.get(i);
+                        if(cur.curTime>=time) {
+                            end = cur;
+                            if(i>0) start = progresses.get(i-1);
+                            i =progresses.size();
+                        }
+                    }
+                    float startProgress = 0.0f;
+                    if(start!=null) startProgress = start.progress;
+                    if(end!=null) {
+                        long startTime = actualStartTime;
+                        if(start!=null) startTime = start.curTime;
+                        long endTime = end.curTime;
+                        float endProgress = end.progress;
+                        float timeDiffNormalized = ((float)(time-startTime))/((float)(endTime-startTime));
+
+                        float progress = timeDiffNormalized*endProgress + (1.0f-timeDiffNormalized)*startProgress;
+                        sumProgress += progress;
+                        count++;
+                    }
+
+                }
+
+                float v = sumProgress/count;
+                return v;
+            }
+        }
+        Map<String, List<Progress>> progressUpdates = new HashMap<>();
+        Debugger.global().setTrigger("progress", (Object ...args) -> {
+            String username = (String)args[0];
+            float progress = new Float(((Double)args[1]));
+            //testStatus.log(Level.INFO, String.format("%s has completed %f%%", username, progress*100));
+        });
+        Debugger.global().setTrigger("download-complete", (Object ...args) -> {
+            String username = (String)args[0];
+            String fname = (String)args[1];
+            Integer lengthChunks = (Integer)args[2];
+            float sizeMB = lengthChunks* DownloadManager.chunkLengthRaw/(1024.0f*1024.0f);
+            testStatus.log(Level.INFO, String.format("%s has COMPLETED download %s, size %.2f MB", username, fname, sizeMB));
+        });
+        Debugger.global().setTrigger("download-failed", (Object ...args) -> {
+            String username = (String)args[0];
+            String fname = (String)args[1];
+            Integer lengthChunks = (Integer)args[2];
+            float sizeMB = lengthChunks* DownloadManager.chunkLengthRaw/(1024.0f*1024.0f);
+            testStatus.log(Level.INFO, String.format("%s has FAILED download %s, size %.2f MB", username, fname, sizeMB));
+        });
+        Debugger.global().setTrigger("download-cancelled", (Object ...args) -> {
+            String username = (String)args[0];
+            String fname = (String)args[1];
+            Integer lengthChunks = (Integer)args[2];
+            float sizeMB = lengthChunks* DownloadManager.chunkLengthRaw/(1024.0f*1024.0f);
+            testStatus.log(Level.INFO, String.format("%s has CANCELLED download %s, size %.2f MB", username, fname, sizeMB));
+        });
+
         TestHarness.P2PTestInfo results = testHarness.generateNetwork(remoteCount, localCount, "peerstart", shouldRedeploy(), localThreaded(), false);
     }
 
@@ -181,7 +280,8 @@ public class EC2Test {
         testHarness.testStatusLogger = testStatus;
         ConcurrentHashMap<String, String> hasFiles = new ConcurrentHashMap<>();
         int remoteCount = 10;
-        TestHarness.P2PTestInfo results = testHarness.generateNetwork(remoteCount, 1, "headless", shouldRedeploy(), localThreaded(), true);
+        // Change to peerstart for bigfile test
+        TestHarness.P2PTestInfo results = testHarness.generateNetwork(remoteCount, 1, "peerstart-with-local", shouldRedeploy(), localThreaded(), true);
     }
 
     @Test
@@ -217,8 +317,21 @@ public class EC2Test {
     }
 
     @Test
+    public void restartAll() throws Exception {
+        TestHarness testHarness = new TestHarness();
+        Logger allLogs = TestHarness.fileOnlyLogger("allLogs", Paths.get("everything.log").toString());
+        Logger testStatus = TestHarness.fileAndConsoleLogger("testStatus", Paths.get("test-results.log").toString());       testHarness.allLogs = allLogs;
+        testHarness.testStatusLogger = testStatus;
+        testHarness.restartAll(10);
+        return;
+    }
+
+    @Test
     public void stopAll() throws Exception {
         TestHarness testHarness = new TestHarness();
+        Logger allLogs = TestHarness.fileOnlyLogger("allLogs", Paths.get("everything.log").toString());
+        Logger testStatus = TestHarness.fileAndConsoleLogger("testStatus", Paths.get("test-results.log").toString());       testHarness.allLogs = allLogs;
+        testHarness.testStatusLogger = testStatus;
         testHarness.stopInstances();
         return;
     }

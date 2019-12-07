@@ -27,7 +27,7 @@ public class NotifyPeersOnConnect implements NewConnectionHandler {
             EnvLogger log = m.getEnv().getLogger();
             //log.log(Level.INFO, "Received new peer connection notification");
             NewPeerConnectedNotification msg = m.getMessage();
-            m.getEnv().getPm().addPeer(msg.getPeer());
+//            m.getEnv().getPm().addPeer(msg.getPeer());
         }
     }
 

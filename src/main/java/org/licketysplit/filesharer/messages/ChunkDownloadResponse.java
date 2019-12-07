@@ -19,7 +19,9 @@ public class ChunkDownloadResponse extends Message {
     private String filePath;
     int chunk;
     Environment env;
-    public ChunkDownloadResponse(String filePath, int chunk, Environment env){
+    String filename;
+    public ChunkDownloadResponse(String filename, String filePath, int chunk, Environment env){
+        this.filename = filename;
         this.filePath = filePath;
         this.chunk = chunk;
         this.env = env;
@@ -29,7 +31,7 @@ public class ChunkDownloadResponse extends Message {
     @Override
     public byte[] toBytes() throws Exception {
 
-        ShareableFile file = new ShareableFile(filePath, DownloadManager.chunkLengthRaw);
+        ShareableFile file = new ShareableFile(filename, filePath, DownloadManager.chunkLengthRaw);
 
         try {
             return file.getChunk(chunk, env);

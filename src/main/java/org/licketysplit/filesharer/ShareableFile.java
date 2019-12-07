@@ -2,13 +2,14 @@ package org.licketysplit.filesharer;
 import org.licketysplit.env.Environment;
 
 import java.io.*;
-import java.util.logging.Level;
 
 public class ShareableFile extends File{
     private int chunkSize;
 
-    public ShareableFile(String pathname, int chunkSize) {
+    private String name;
+    public ShareableFile(String name, String pathname, int chunkSize) {
         super(pathname);
+        this.name = name;
         this.chunkSize = chunkSize;
     }
 
@@ -20,7 +21,11 @@ public class ShareableFile extends File{
                 if (chunk > 0) offset = this.getOffset(chunk); //RENAME, offset is misnomer
                 int spaceNeeded = this.getSpaceNeeded(chunk, offset);
                 byte[] bytes = new byte[spaceNeeded];
-                RandomAccessFile raf = FileAssembler.FileAccessor.getFile(this.getAbsolutePath());
+                RandomAccessFile raf;
+                if(env.getFS().downloadInProgress(name))
+                    raf = FileAssembler.FileAccessor.getFile(this.getAbsolutePath());
+                else
+                    raf = FileAssembler.FileAccessor.getFileAndCheckOK(env, name, this.getAbsolutePath());
                 synchronized (raf) {
                     raf.seek(chunk * DownloadManager.chunkLengthRaw);
                     raf.readFully(bytes);

@@ -31,12 +31,7 @@ public class PeerChunkInfo {
     }
 
     public boolean hasChunk(int chunk){
-        for(int i = 0; i < this.chunks.size(); i++){
-            if(this.chunks.get(i) == chunk){
-                return true;
-            }
-        }
-        return false;
+        return this.chunks.contains(chunk);
     }
 
     public int chunksLength(){

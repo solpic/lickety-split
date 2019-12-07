@@ -357,7 +357,7 @@ public class PeerInfoDirectory {
         return bootstrap;
     }
     public void newPeerCallback(PeerInfo peer) throws Exception {
-        env().getPm().newPeer(peer.getUsername());
+//        env().getPm().newPeer(peer.getUsername());
     }
 
     Environment e;

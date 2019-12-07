@@ -32,7 +32,7 @@ public class FileSharer {
 
     public void setEnv(Environment env) {
         this.env = env;
-        downloadRetrier.env = env;
+//        downloadRetrier.env = env;
     }
 
     public HashMap<String, DownloadManager> getDownloads(){
@@ -86,34 +86,17 @@ public class FileSharer {
 
 
     public void failed(FileInfo fileInfo) {
+        String name = fileInfo.name;
         cancelOrFinish(fileInfo);
     }
 
-    Retrier downloadRetrier = new Retrier(new int[]{5000, 10000, 15000, 20000, 30000}, 30000);
+//    Retrier downloadRetrier = new Retrier(new int[]{5000, 10000, 15000, 20000, 30000}, 30000);
 
     public void download(FileInfo fileInfo){
         new Thread(() -> {
             try {
-                boolean firstTry = true;
-                while (downloadRetrier.tryOrRetry(fileInfo.name, firstTry)) {
-                    firstTry = false;
-                    Object doneLock = new Object();
-                    env.log("Starting download");
-                    DownloadManager download = downloadWrapper(fileInfo, doneLock);
-                    download.doneLock = doneLock;
-                    env.log("Waiting for finish");
-                    synchronized (doneLock) {
-                        env.log("Got lock");
-                        doneLock.wait();
-                    }
-                    if (!download.hasFailed) {
-                        env.log("Download success");
-                        downloadRetrier.success(fileInfo.name);
-                        return;
-                    } else {
-                        env.log("Download failure");
-                    }
-                }
+                Object doneLock = new Object();
+                DownloadManager download = downloadWrapper(fileInfo, doneLock);
             } catch(Exception e) {
                 env.getLogger().log(Level.INFO,
                         "Error in download watcher",
@@ -153,6 +136,13 @@ public class FileSharer {
     public boolean downloadInProgress(FileInfo fileInfo){
         synchronized(currentDownloads) {
             if(currentDownloads.containsKey(fileInfo.name) ) return true;
+        }
+        return false;
+    }
+
+    public boolean downloadInProgress(String name) {
+        synchronized(currentDownloads) {
+            if(currentDownloads.containsKey(name) ) return true;
         }
         return false;
     }

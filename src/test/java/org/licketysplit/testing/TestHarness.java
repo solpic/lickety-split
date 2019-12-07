@@ -148,12 +148,13 @@ public class TestHarness {
         return ids.size()==0;
     }
 
-    public void stopInstances() throws Exception {
+    public int stopInstances() throws Exception {
         ec2 = AmazonEC2ClientBuilder.defaultClient();
         List<Instance> instances = getInstances();
         List<Instance> running = instances.stream()
                 .filter(i -> i.getState().getName().equals("running"))
                 .collect(Collectors.toList());
+        int count = running.size();
 
         List<String> toStop = running.stream().map(i -> i.getInstanceId())
                 .collect(Collectors.toList());
@@ -161,6 +162,7 @@ public class TestHarness {
                 toStop
         ));
         waitUntilState(toStop, "stopped");
+        return count;
     }
 
 
@@ -350,6 +352,17 @@ public class TestHarness {
         }
     }
 
+    public void restartAll(int count) throws Exception {
+        try {
+            stopInstances();
+        }catch(Exception e) {
+            e.printStackTrace();
+        }
+        ec2 = AmazonEC2ClientBuilder.defaultClient();
+        List<Instance> instances = getInstances();
+        startInstanceCount(instances, count);
+    }
+
     public static class P2PTestInfo {
         public TestNetworkManager.TestNetworkDataInfo data;
         public String logFolder;
@@ -391,7 +404,7 @@ public class TestHarness {
 
     P2PTestInfo createAndUploadFiles(long remoteCount, long localCount, String runcmd, boolean shouldRedeploy, boolean localThreaded
     , boolean exitAfterStart) throws Exception {
-        cleanAllRunning();
+        if(remoteCount>0) cleanAllRunning();
         jarPath = System.getProperty("jarPath");
         String _testDataPath = "test-data";
         String _testingFolder = "test-data-root";

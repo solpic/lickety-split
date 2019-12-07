@@ -293,10 +293,11 @@ public class FileManager {
     }
 
     //Adds file to manifest and folder
-    public FileInfo addFile(String fileLocation) throws Exception{
+    public FileInfo addFile(String fileLocation, String name) throws Exception{
         File source = new File(fileLocation);
-        File dest = new File(this.getSharedDirectoryPath(source.getName()));
+        File dest = new File(this.getSharedDirectoryPath(name));
         FileInfo info = new FileInfo(source, new Date().getTime());
+        info.name = name;
         info.md5 = env.getSyncManager().getMD5(source);
         try {
             this.addFileToManifest(info);

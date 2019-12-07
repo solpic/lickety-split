@@ -77,9 +77,42 @@ public class FileAssembler implements Runnable{
         public static class RAFObj {
             public RandomAccessFile f;
             public long lastAccess;
+            public long lastIntegrityCheck = 0;
             public RAFObj() {}
         }
+
+        static boolean integrityCheck(Environment env, String name) throws Exception {
+            return env.getSyncManager().checkMD5AgainstManifest(name);
+        }
+
         private static ConcurrentHashMap<String, RAFObj> files;
+        public static RandomAccessFile getFileAndCheckOK(Environment env, String name, String path) throws Exception {
+            init();
+            if(!files.containsKey(path)) {
+                files.putIfAbsent(path, new RAFObj());
+            }
+            RAFObj raf = files.get(path);
+            synchronized (raf) {
+                File f = new File(path);
+                long l = f.lastModified();
+                if(l>raf.lastIntegrityCheck) {
+                    if(!integrityCheck(env, name)) {
+                        f.delete();
+                        env.log(String.format("MD5 isn't good for file '%s', deleting", name));
+                        throw new Exception("MD5 isn't good for file, deleting");
+                    }else{
+                        env.log(String.format("Confirmed MD5 for file '%s'", name));
+                    }
+                    raf.lastIntegrityCheck = l;
+                }
+                raf.lastAccess = System.currentTimeMillis();
+                if(raf.f==null) {
+                    raf.f = new RandomAccessFile(path, "rw");
+                }
+                return raf.f;
+            }
+        }
+
         public static RandomAccessFile getFile(String path) throws Exception {
             init();
 

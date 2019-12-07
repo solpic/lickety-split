@@ -349,6 +349,13 @@ public class NetworkView extends JPanel {
         });
         env.changes.runHandler("peerlist-changed", 0);
 
+        env.changes.setHandler("download-failed", (arg) -> {
+            SwingUtilities.invokeLater(() -> {
+                JOptionPane.showMessageDialog(frame,
+                        String.format("Download failed for file: %s", (String)arg));
+            });
+        });
+
         new Thread(() -> {
             while(isVisible()) {
                 try {

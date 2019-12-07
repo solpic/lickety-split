@@ -31,6 +31,7 @@ public class UserInfo {
             this.userInfo = userInfo;
             this.peerInfo = peerInfo;
         }
+
     }
 
     public String getUsername() {
@@ -73,11 +74,6 @@ public class UserInfo {
     @Override
 
     public int hashCode() {
-        int result = 0;
-        for(int i = 0; i<username.length(); i++) {
-            result *= 256;
-            result += Character.getNumericValue(username.charAt(i));
-        }
-        return result;
+        return username.hashCode();
     }
 }
