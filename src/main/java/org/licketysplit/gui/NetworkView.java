@@ -7,6 +7,7 @@ import org.apache.commons.io.FileUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.licketysplit.env.Environment;
+import org.licketysplit.filesharer.DownloadManager;
 import org.licketysplit.syncmanager.FileInfo;
 import org.licketysplit.syncmanager.FileManager;
 
@@ -27,6 +28,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
@@ -133,6 +135,7 @@ public class NetworkView extends JPanel {
             SwingUtilities.invokeLater(() -> {
                 try {
                     env.getSyncManager().syncManifests();
+                    updateTable();
                 } catch(Exception e) {
                     e.printStackTrace();
                 }
@@ -250,7 +253,11 @@ public class NetworkView extends JPanel {
             try {
                 int selectedRow = fileTable.getSelectedRow();
                 String filename = (String) fileTable.getValueAt(selectedRow, 0);
-                env.getFS().currentProgress(filename).cancelDownload();
+                DownloadManager dm = env.getFS().currentProgress(filename);
+                if(dm!=null)
+                    dm.cancelDownload();
+                else
+                    throw new Exception("No download in progress");
             } catch(Exception e) {
                 e.printStackTrace();
                 JOptionPane.showMessageDialog(frame,
@@ -312,6 +319,7 @@ public class NetworkView extends JPanel {
                 SwingUtilities.invokeLater(new Runnable() {
                     @Override
                     public void run() {
+                        System.out.println("Changing selection");
                         int rowAtPoint = fileTable.rowAtPoint(SwingUtilities.convertPoint(popup, new Point(0, 0), fileTable));
                         if (rowAtPoint > -1) {
                             fileTable.setRowSelectionInterval(rowAtPoint, rowAtPoint);
@@ -355,17 +363,6 @@ public class NetworkView extends JPanel {
                         String.format("Download failed for file: %s", (String)arg));
             });
         });
-
-        new Thread(() -> {
-            while(isVisible()) {
-                try {
-                    updateTable();
-                    Thread.sleep(5000);
-                }catch(Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        }).start();
     }
 
 

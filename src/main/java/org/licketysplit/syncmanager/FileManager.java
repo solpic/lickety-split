@@ -273,6 +273,9 @@ public class FileManager {
                         theirUsername,
                         yourManifestOriginal,
                         theirManifestOriginal, theirManifest.toString(4)));
+
+            if(changed)
+                triggerGUIChanges();
             return changed;
         }
     }
