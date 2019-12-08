@@ -24,48 +24,21 @@ import java.util.*;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
-
 /**
  * This class is only used for testing and doesn't affect normal usage of the application
  * whatsoever. This class serves as the entry point for simulated peers under various conditions,
  * mainly to test adding, updating and deleting large numbers of files over time.
  */
 public class TestRunner {
-    /**
-     * Instantiates a new Test runner.
-     */
     public TestRunner() {
 
     }
 
-    /**
-     * The constant rootKeyFilename.
-     */
     public static String rootKeyFilename = "rootkey";
-    /**
-     * The constant idKeyFilename.
-     */
     public static String idKeyFilename = "idkey";
-    /**
-     * The constant infoFilename.
-     */
     public static String infoFilename = "infodir";
-    /**
-     * The constant cmdFilename.
-     */
     public static String cmdFilename = "run.sh";
 
-    /**
-     * Gets env.
-     *
-     * @param ip        the ip
-     * @param port      the port
-     * @param username  the username
-     * @param isRoot    the is root
-     * @param localPath the local path
-     * @return the env
-     * @throws Exception the exception
-     */
     public Environment getEnv(String ip, int port, String username, boolean isRoot, String localPath) throws Exception {
         PeerInfoDirectory info = new PeerInfoDirectory(Paths.get(localPath, infoFilename).toString());
         info.load();
@@ -120,13 +93,6 @@ public class TestRunner {
         return env;
     }
 
-    /**
-     * User number int.
-     *
-     * @param username the username
-     * @return the int
-     * @throws Exception the exception
-     */
     int userNumber(String username) throws Exception{
         int i = username.indexOf('-');
         int i2 = username.indexOf('-', i + 1);
@@ -134,13 +100,6 @@ public class TestRunner {
         return Integer.parseInt(username.substring(i+1, i2));
     }
 
-    /**
-     * Compare byte files boolean.
-     *
-     * @param expected the expected
-     * @param actual   the actual
-     * @return the boolean
-     */
     boolean compareByteFiles(byte[] expected, byte[] actual) {
         if(expected.length!=actual.length) return false;
         for (int i = 0; i < expected.length; i++) {
@@ -149,12 +108,6 @@ public class TestRunner {
         return true;
     }
 
-    /**
-     * Check final state.
-     *
-     * @param env the env
-     * @throws Exception the exception
-     */
     void checkFinalState(Environment env) throws Exception {
         boolean good = true;
         StringBuilder msg = new StringBuilder();
@@ -202,74 +155,26 @@ public class TestRunner {
     }
 
 
-    /**
-     * The Random file maker.
-     */
     Random randomFileMaker = new Random(100);
 
-    /**
-     * Random big file byte [ ].
-     *
-     * @param length the length
-     * @return the byte [ ]
-     */
     byte[] randomBigFile(int length) {
         byte[] bytes = new byte[length];
         randomFileMaker.nextBytes(bytes);
         return bytes;
     }
 
-    /**
-     * The type File change.
-     */
     public static class FileChange {
-        /**
-         * The Path.
-         */
         public String path;
-        /**
-         * The Tmp path.
-         */
         public String tmpPath;
-        /**
-         * The Update name.
-         */
         public String updateName;
-        /**
-         * The New version name.
-         */
         public String newVersionName;
-        /**
-         * The Delete name.
-         */
         public String deleteName;
-        /**
-         * The Create.
-         */
         public boolean create = false;
-        /**
-         * The Update.
-         */
         public boolean update = false;
-        /**
-         * The Delete.
-         */
         public boolean delete = false;
-        /**
-         * The User number.
-         */
         public int userNumber;
-        /**
-         * The Delay.
-         */
         public int delay;
 
-        /**
-         * Can delete or update boolean.
-         *
-         * @param finalContents the final contents
-         * @return the boolean
-         */
         public static boolean canDeleteOrUpdate(Map<String, String> finalContents) {
             synchronized (finalContents) {
                 return finalContents.entrySet().stream().filter(e -> e.getValue() != null)
@@ -277,17 +182,6 @@ public class TestRunner {
             }
         }
 
-        /**
-         * Random create file change.
-         *
-         * @param env      the env
-         * @param r        the r
-         * @param delay    the delay
-         * @param sizeMin  the size min
-         * @param sizeMax  the size max
-         * @param maxUsers the max users
-         * @return the file change
-         */
         public static FileChange randomCreate(Environment env, Random r, int delay, int sizeMin, int sizeMax, int maxUsers) {
             try {
                 FileChange change = new FileChange();
@@ -316,19 +210,6 @@ public class TestRunner {
             }
         }
 
-        /**
-         * Random delete or update file change.
-         *
-         * @param env           the env
-         * @param r             the r
-         * @param delay         the delay
-         * @param sizeMin       the size min
-         * @param sizeMax       the size max
-         * @param maxUsers      the max users
-         * @param finalContents the final contents
-         * @return the file change
-         * @throws Exception the exception
-         */
         public static FileChange randomDeleteOrUpdate(Environment env, Random r, int delay, int sizeMin, int sizeMax, int maxUsers, Map<String, String> finalContents) throws Exception {
             float deleteChance = 0.3f;
             FileChange change = new FileChange();
@@ -364,26 +245,13 @@ public class TestRunner {
             return change;
         }
 
-        /**
-         * Change message string.
-         *
-         * @return the string
-         */
         public String changeMessage() {
             return null;
         }
     }
 
-    /**
-     * The Final contents.
-     */
     Map<String, String> finalContents = new HashMap<>();
 
-    /**
-     * Apply change.
-     *
-     * @param change the change
-     */
     void applyChange(FileChange change) {
         synchronized (finalContents) {
             if(change.create) {
@@ -397,12 +265,6 @@ public class TestRunner {
         }
     }
 
-    /**
-     * Bytes to repr string.
-     *
-     * @param data the data
-     * @return the string
-     */
     String bytesToRepr(byte[] data) {
         StringBuilder str = new StringBuilder();
         for (int i = 0; i < data.length; i++) {
@@ -413,12 +275,6 @@ public class TestRunner {
         return str.toString();
     }
 
-    /**
-     * Nonzeroes int.
-     *
-     * @param data the data
-     * @return the int
-     */
     int nonzeroes(byte[] data) {
         int count = 0;
         for (byte datum : data) {
@@ -427,28 +283,11 @@ public class TestRunner {
         return count;
     }
 
-    /**
-     * The constant fileMB.
-     */
     public static int fileMB = 20;
-    /**
-     * The constant fileMBRange.
-     */
     public static int fileMBRange = 5;
 
-    /**
-     * The Changes.
-     */
     List<FileChange> changes = new ArrayList<>();
 
-    /**
-     * Run main.
-     *
-     * @param env        the env
-     * @param usernumber the usernumber
-     * @param localPath  the local path
-     * @throws Exception the exception
-     */
     void runMain(Environment env, int usernumber, String localPath) throws Exception{
         env.getLogger().log(Level.INFO, String.format("I am user number %d", usernumber));
         env.getLogger().trigger("print", String.format("User number %d", usernumber));
@@ -562,12 +401,6 @@ public class TestRunner {
 
     }
 
-    /**
-     * Start peer.
-     *
-     * @param args the args
-     * @throws Exception the exception
-     */
     public void startPeer(String[] args) throws Exception {
         String cmd = args[0];
         String username = args[1];
@@ -631,12 +464,6 @@ public class TestRunner {
         if(!isLocalThread)  System.exit(0);
     }
 
-    /**
-     * Run.
-     *
-     * @param args the args
-     * @throws Exception the exception
-     */
     public void run(String[] args) throws Exception {
         if(args==null||args.length==0) {
             throw new Exception("Expected arguments");
