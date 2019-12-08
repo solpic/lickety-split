@@ -10,7 +10,18 @@ import org.licketysplit.securesocket.messages.ReceivedMessage;
 
 import java.util.logging.Level;
 
+/**
+ * After handshaking, syncs two peers peer lists. This is no longer
+ * used in favor of alternate methods of connecting to peers.
+ */
 public class SyncPeerListOnConnect implements NewConnectionHandler {
+    /**
+     * Called after handshaking, syncs the peer lists.
+     * @param user the user we confirmed with
+     * @param sock the socket
+     * @param env  our Environment
+     * @throws Exception
+     */
     @Override
     public void connectionConfirmed(UserInfo user, SecureSocket sock, Environment env) throws Exception {
         EnvLogger logger = env.getLogger();
@@ -36,10 +47,16 @@ public class SyncPeerListOnConnect implements NewConnectionHandler {
     }
 
 
-
+    /**
+     * The default handler for GetPeerListRequest messages.
+     */
     @DefaultHandler(type=GetPeerListRequest.class)
     public static class GetPeerListRequestHandler implements MessageHandler {
 
+        /**
+         * Called when the message is received, sends back a copy of our peer list.
+         * @param m the received message
+         */
         @Override
         public void handle(ReceivedMessage m) {
             GetPeerListRequest r = m.getMessage();

@@ -3,6 +3,9 @@ package org.licketysplit.env;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * No longer used.
+ */
 public class Retrier {
     int[] waitTimes;
     int attemptResetTime;

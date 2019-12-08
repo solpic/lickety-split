@@ -35,7 +35,23 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+/**
+ * Entry GUI screen for the application.
+ * This screen lists all the networks you have saved, and gives you various options
+ * for interacting with those networks such as:
+ * Connect to Network
+ * Delete Network
+ * Add New Network from Bootstrap File
+ * Create New Network
+ */
 public class StartScreen extends JPanel {
+    /**
+     * Get a File object for information about saved networks.
+     * This file points to where saved network information is stored
+     *
+     * @return the file
+     * @throws Exception the exception
+     */
     File savedNetworksFile() throws Exception{
         File file = new File("networks.txt");
         if(!file.exists()) {
@@ -47,15 +63,27 @@ public class StartScreen extends JPanel {
         }
         return file;
     }
+
+    /**
+     * Parse the savedNetworksFile from JSON into an array.
+     *
+     * @return the saved networks array.
+     * @throws Exception the exception
+     */
     SavedNetwork[] loadSavedNetworks() throws Exception {
         ObjectMapper mapper = new ObjectMapper();
         return mapper.readValue(savedNetworksFile(), SavedNetwork[].class);
     }
 
 
+    /**
+     * Adds a network from a bootstrap file and updates table.
+     *
+     * @param bootstrap the bootstrap file
+     */
     void addNetworkToList(File bootstrap)  {
         try {
-
+            // Gets a name for display purposes
             String name = JOptionPane.showInputDialog("Name of network (for your use only)?");
             SavedNetwork savedNetwork = makeFromBootstrap(name, bootstrap);
             SavedNetwork[] savedNetworks = loadSavedNetworks();
@@ -84,10 +112,21 @@ public class StartScreen extends JPanel {
         }
     }
 
+    /**
+     * Callback for when a network is created, we simply add it to the network list from the bootstrap file 'bootstrap'
+     *
+     * @param bootstrap the bootstrap file
+     */
     public void createdNetwork(File bootstrap) {
         addNetworkToList(bootstrap);
     }
 
+
+    /**
+     * Helper function to unzip a zip file at zipFilePath into destination directory destDir
+     * @param zipFilePath target ZIP file
+     * @param destDir where to unzip to
+     */
     private static void unzip(String zipFilePath, String destDir) throws Exception {
         File dir = new File(destDir);
         // create output directory if it doesn't exist
@@ -121,6 +160,13 @@ public class StartScreen extends JPanel {
 
     }
 
+    /**
+     * Helper function that checks that 'path' is a directory, and if it does not exist make a new directory
+     * at location 'path'
+     *
+     * @param path the path
+     * @throws Exception the exception
+     */
     void checkNotFileAndMkdir(File path) throws Exception {
         if (path.isFile()) {
             throw new Exception(String.format("File '%s' exists, need access as directory", path.getAbsolutePath()));
@@ -129,6 +175,15 @@ public class StartScreen extends JPanel {
             path.mkdir();
         }
     }
+
+    /**
+     * Gets the directory where a network named 'name' is located
+     * Creates necessary folders if they don't exist
+     *
+     * @param name name of the network
+     * @return file pointing to base dir of network
+     * @throws Exception the exception
+     */
     public File baseDirForNetwork(String name) throws Exception {
         File data = new File("data");
         checkNotFileAndMkdir(data);
@@ -145,6 +200,17 @@ public class StartScreen extends JPanel {
         return base;
     }
 
+    /**
+     * Initializes a network from a bootstrap ZIP file.
+     * Copies various files and creates various directories so that later on
+     * the network can be easily loaded. Returns a SavedNetwork data structure
+     * which can launch the PeerManager directly.
+     *
+     * @param name      name of the network
+     * @param bootstrap the bootstrap file
+     * @return SavedNetwork object representing network
+     * @throws Exception the exception
+     */
     public SavedNetwork makeFromBootstrap(String name, File bootstrap) throws Exception {
         Path temp = Files.createTempDirectory("temp");
         unzip(bootstrap.getAbsolutePath(), temp.toString());
@@ -182,86 +248,200 @@ public class StartScreen extends JPanel {
     }
 
 
-
+    /**
+     * Helper class to keep track of information about a users saved
+     * networks. Can also start the peer manager, which will start the
+     * P2P aspect of the application
+     */
     public static class SavedNetwork {
+        /**
+         * The Id key file location.
+         */
         String idKey;
+        /**
+         * The Root key file location (only exists if you are a root)
+         */
         String rootKey;
+        /**
+         * The peer info dir file location.
+         */
         String infoDir;
+        /**
+         * The User info file location.
+         */
         String userInfo;
+        /**
+         * The Shared files directory location.
+         */
         String sharedFiles;
+        /**
+         * The Configs directory location.
+         */
         String configs;
+        /**
+         * Name of this network.
+         */
         String name;
 
+        /**
+         * Gets user info file location.
+         *
+         * @return the user info
+         */
         public String getUserInfo() {
             return userInfo;
         }
 
+        /**
+         * Sets user info.
+         *
+         * @param userInfo the user info
+         */
         public void setUserInfo(String userInfo) {
             this.userInfo = userInfo;
         }
 
-
+        /**
+         * Gets name.
+         *
+         * @return the name
+         */
         public String getName() {
             return name;
         }
 
+        /**
+         * Sets name.
+         *
+         * @param name the name
+         */
         public void setName(String name) {
             this.name = name;
         }
 
+        /**
+         * Instantiates a new Saved network.
+         */
         public SavedNetwork() {
         }
 
+        /**
+         * Gets id key.
+         *
+         * @return the id key
+         */
         public String getIdKey() {
             return idKey;
         }
 
+        /**
+         * Sets id key.
+         *
+         * @param idKey the id key
+         */
         public void setIdKey(String idKey) {
             this.idKey = idKey;
         }
 
+        /**
+         * Gets root key.
+         *
+         * @return the root key
+         */
         public String getRootKey() {
             return rootKey;
         }
 
+        /**
+         * Sets root key.
+         *
+         * @param rootKey the root key
+         */
         public void setRootKey(String rootKey) {
             this.rootKey = rootKey;
         }
 
+        /**
+         * Gets info dir.
+         *
+         * @return the info dir
+         */
         public String getInfoDir() {
             return infoDir;
         }
 
+        /**
+         * Sets info dir.
+         *
+         * @param infoDir the info dir
+         */
         public void setInfoDir(String infoDir) {
             this.infoDir = infoDir;
         }
 
+        /**
+         * Gets shared files.
+         *
+         * @return the shared files
+         */
         public String getSharedFiles() {
             return sharedFiles;
         }
 
+        /**
+         * Sets shared files.
+         *
+         * @param sharedFiles the shared files
+         */
         public void setSharedFiles(String sharedFiles) {
             this.sharedFiles = sharedFiles;
         }
 
+        /**
+         * Gets configs.
+         *
+         * @return the configs
+         */
         public String getConfigs() {
             return configs;
         }
 
+        /**
+         * Sets configs.
+         *
+         * @param configs the configs
+         */
         public void setConfigs(String configs) {
             this.configs = configs;
         }
 
+        /**
+         * Uses stored info about user info file,
+         * peer info directory, ID key,
+         * root key (if you are root) to load
+         * relevant data structures from file
+         * and start the PeerManager with a call to
+         * env.getPm().start()
+         *
+         * This will connect you to all peers on the network
+         * and allow you to upload and download files.
+         *
+         * @return the initialized environment
+         * @throws Exception the exception
+         */
         public Environment start() throws Exception{
+            // Load peer info dir from file
             PeerInfoDirectory info = new PeerInfoDirectory(infoDir);
             info.load();
 
+            // Load username, IP address and port from file
             ObjectMapper objectMapper = new ObjectMapper();
             HashMap hashMap = objectMapper.readValue(new File(userInfo), HashMap.class);
             String username = (String)hashMap.get("username");
             String ip = (String)hashMap.get("ip");
             String port = (String)hashMap.get("port");
 
+            // If you are root load root key from file
             boolean isRoot = rootKey!=null;
 
             KeyStore rootKeyStore = null;
@@ -270,9 +450,11 @@ public class StartScreen extends JPanel {
                 rootKeyStore.load();
             }
 
+            // Load ID key from file
             KeyStore idKeyStore = new KeyStore(idKey);
             idKeyStore.load();
 
+            // Initialize relevant singletons
             PeerManager.ServerInfo serverInfo = new PeerManager.ServerInfo(Integer.parseInt(port), ip);
             org.licketysplit.securesocket.peers.UserInfo user = new UserInfo(username, serverInfo);
             PeerManager pm = new PeerManager();
@@ -304,11 +486,17 @@ public class StartScreen extends JPanel {
 
             fm.initializeFiles(username);
 
+            // Start peer manager, this listens for new connections at your IP/port
+            // and tries to connect to all known peers
+            // You will also start serving downloads if other peers ask for them
             env.getPm().start();
             return env;
         }
     }
 
+    /**
+     * Delete network that is currently selected in the table.
+     */
     void deleteNetwork() {
         String networkName = "unknown";
         try {
@@ -352,6 +540,9 @@ public class StartScreen extends JPanel {
         }
     }
 
+    /**
+     * Connect to network that is selected in the table.
+     */
     void connect() {
         String networkName = "unknown";
         try {
@@ -379,10 +570,9 @@ public class StartScreen extends JPanel {
         }
     }
 
-    public static void selectFile(File f) throws Exception {
-
-    }
-
+    /**
+     * Adds a new network from a bootstrap file by opening a file chooser.
+     */
     void addNew() {
         JFileChooser fc = new JFileChooser();
         int returnVal = fc.showOpenDialog(frame);
@@ -393,16 +583,34 @@ public class StartScreen extends JPanel {
         }
     }
 
+    /**
+     * Opens a CreateNewNetworkView to create a new network.
+     */
     void createNew() {
         new CreateNewNetworkView(this, frame);
     }
+
+    /**
+     * Parent JFrame.
+     */
     JFrame frame;
+    /**
+     * Table listing networks
+     */
     final JTable table;
+
+    /**
+     * Creates the view and adds necessary components
+     *
+     * @param frame parent JFrame
+     * @throws Exception the exception
+     */
     public StartScreen(JFrame frame) throws Exception {
         super();
         this.frame = frame;
         setLayout(new BoxLayout(this, BoxLayout.PAGE_AXIS));
 
+        // Load saved networks into table
         JPanel listedProfiles = new JPanel();
         Object[][] data = Arrays.stream(loadSavedNetworks())
                 .map(e-> new Object[]{e.getName()})
@@ -414,6 +622,8 @@ public class StartScreen extends JPanel {
         for (Object[] datum : data) {
             m.addRow(datum);
         }
+
+        // Add double click listener to connect to a network
         table.addMouseListener(new MouseAdapter() {
             public void mousePressed(MouseEvent mouseEvent) {
                 JTable table =(JTable) mouseEvent.getSource();
@@ -436,6 +646,7 @@ public class StartScreen extends JPanel {
         add(new JLabel("Networks"));
         add(listedProfiles);
 
+        // Add connect to network button
         JButton connectButton = new JButton("Connect to Selected Network");
         connectButton.addActionListener((e) -> {
             SwingUtilities.invokeLater(() -> {
@@ -443,7 +654,7 @@ public class StartScreen extends JPanel {
             });
         });
 
-
+        // Add delete network button
         JButton deleteButton = new JButton("Delete Selected Network");
         deleteButton.addActionListener((e) -> {
             SwingUtilities.invokeLater(() -> {
@@ -451,6 +662,7 @@ public class StartScreen extends JPanel {
             });
         });
 
+        // Add 'Add Network ...' button
         JButton addNewButton = new JButton("Add Network from Bootstrap File");
         addNewButton.addActionListener((e) ->{
             SwingUtilities.invokeLater(() -> {
@@ -458,6 +670,7 @@ public class StartScreen extends JPanel {
             });
         });
 
+        // Add Create New Network button
         JButton createNewButton = new JButton("Create New Network");
         createNewButton.addActionListener((e) -> {
             SwingUtilities.invokeLater(() -> {

@@ -8,7 +8,19 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.io.File;
 
+/**
+ * GUI screen to upload a new file to the network.
+ * Opens up a file chooser and when the file is selected
+ * add the file to the network with the SyncManager, trigger a GUI update,
+ * and close this window.
+ */
 public class NewFileView  {
+    /**
+     * Instantiates a new New file view.
+     *
+     * @param env   this peers environment
+     * @param frame the parent JFrame
+     */
     public NewFileView(Environment env, JFrame frame) {
         File selectedFile = null;
         try {

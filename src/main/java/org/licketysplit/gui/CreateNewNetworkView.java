@@ -15,8 +15,24 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * GUI screen to allow the creation of a new network.
+ * In it you specify your username, IP address, and port,
+ * and it generates a bootstrap file for you to load the new
+ * network into the StartScreen.
+ */
 public class CreateNewNetworkView extends JDialog {
 
+    /**
+     * Creates the a new network and corresponding
+     * bootstrap file given this root user (username, ip, port).
+     * Loads the network into the StartScreen table.
+     *
+     * @param username the username of root
+     * @param ip       the ip of root
+     * @param port     the port of root
+     * @throws Exception the exception
+     */
     void createTheNetwork(String username, String ip, String port) throws Exception {
         File infodir = File.createTempFile("infodir", null);
         PeerInfoDirectory info = new PeerInfoDirectory(infodir.getPath());
@@ -50,7 +66,17 @@ public class CreateNewNetworkView extends JDialog {
 
     }
 
+    /**
+     * Parent StartScreen instance
+     */
     StartScreen start;
+
+    /**
+     * Instantiates a new Create new network view.
+     *
+     * @param start StartScreen that created this
+     * @param frame the parent JFrame
+     */
     public CreateNewNetworkView(StartScreen start, JFrame frame) {
         super(frame, "Create New Network");
         this.start = start;

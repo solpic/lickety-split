@@ -35,6 +35,10 @@ import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Helper class to make automating tests using amazon EC2 servers
+ * much easier.
+ */
 public class TestHarness {
     static String logFolder = "test-logs";
     public static void initializeLogs() {

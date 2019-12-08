@@ -18,6 +18,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
+/**
+ * Runs various tests by simulating peers using Amazon EC2 servers.
+ */
 public class EC2Test {
     public static boolean shouldRedeploy() {
         return "yes".equals( System.getProperty("shouldRedeploy"));

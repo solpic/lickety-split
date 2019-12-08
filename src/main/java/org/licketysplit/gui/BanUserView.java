@@ -9,7 +9,18 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.util.Date;
 
+/**
+ * GUI screen to ban users.
+ * This is only accessible if you are root.
+ * Simply provides an input for the username and a Ban User button.
+ */
 public class BanUserView extends JDialog {
+    /**
+     * Instantiates a new Ban user view.
+     *
+     * @param env    this peer's Environment
+     * @param parent the parent JFrame
+     */
     public BanUserView(Environment env, JFrame parent) {
         super(parent, "Add New User");
 

@@ -9,25 +9,57 @@ import org.licketysplit.syncmanager.FileManager;
 
 import java.util.logging.Level;
 
+/**
+ * Sent when a file has been updated on the network.
+ */
 public class UpdateFileNotification extends JSONMessage {
+    /**
+     * Metadata about the updated file.
+     */
     private FileInfo fileInfo;
 
+    /**
+     * Gets file info.
+     *
+     * @return the file info
+     */
     public FileInfo getFileInfo() {
         return fileInfo;
     }
 
+    /**
+     * Sets file info.
+     *
+     * @param fileInfo the file info
+     */
     public void setFileInfo(FileInfo fileInfo) {
         this.fileInfo = fileInfo;
     }
 
+    /**
+     * Instantiates a new Update file notification.
+     */
     public UpdateFileNotification() {}
 
+    /**
+     * Instantiates a new Update file notification.
+     *
+     * @param fileInfo the file info
+     */
     public UpdateFileNotification(FileInfo fileInfo){
         this.fileInfo = fileInfo;
     }
 
+    /**
+     * Default handler for the UpdateFileNotification message.
+     */
     @DefaultHandler(type = UpdateFileNotification.class)
     public static class UpdateFileRequestHandler implements MessageHandler {
+        /**
+         * Called when the message is received,
+         * runs a callback on the FileManager.
+         * @param m the received message
+         */
         @Override
         public void handle(ReceivedMessage m) {
             UpdateFileNotification updateFileNotification = m.getMessage();

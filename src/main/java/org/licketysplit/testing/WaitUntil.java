@@ -1,5 +1,8 @@
 package org.licketysplit.testing;
 
+/**
+ * No longer used.
+ */
 public class WaitUntil {
     public WaitUntil() {
         stopTimeLock = new Object();

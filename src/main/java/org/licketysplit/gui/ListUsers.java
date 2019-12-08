@@ -10,8 +10,19 @@ import java.awt.*;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * GUI view that lists all the peers in the network, as well as
+ * other metadata such as whether you are connected to them,
+ * whether they are banned,
+ * their IP address and port..
+ */
 public class ListUsers extends JDialog {
-
+    /**
+     * Helper function to generate the array to put data into the table.
+     *
+     * @param env this peer's Environment
+     * @return raw data for JTable
+     */
     Object[][] getData(Environment env) {
         return env.getInfo()
                 .getPeers()
@@ -28,6 +39,13 @@ public class ListUsers extends JDialog {
                 )
                 .toArray(Object[][]::new);
     }
+
+    /**
+     * Constructor/add components to frame.
+     *
+     * @param env   this peer's Environment
+     * @param frame the parent JFrame
+     */
     public ListUsers(Environment env, JFrame frame) {
         super(frame, "Listing Users");
         setLayout(new BorderLayout());
@@ -38,7 +56,6 @@ public class ListUsers extends JDialog {
         final JTable table = new JTable(m);
         m.setDataVector(getData(env),  new String[]{"Username", "IP Address", "Port", "Status"});
 
-//        table.setPreferredScrollableViewportSize(new Dimension(500, 70));
         table.setFillsViewportHeight(true);
 
         //Create the scroll pane and add the table to it.

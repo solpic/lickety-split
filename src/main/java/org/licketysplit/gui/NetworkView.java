@@ -34,34 +34,75 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 
 /**
- * TableDemo is just like SimpleTableDemo, except that it uses a custom
- * TableModel.
+ * View that is shown while connected to a network.
+ * This view lists all the files in the network, and lets you
+ * perform various operations on them by right clicking such as:
+ * Update, Delete, Download, and Cancel Download
+ *
+ * Additionally, from File top menu you can list the current users,
+ * upload new files, and if you are a root user you can also add new users
+ * and ban existing users.
  */
 public class NetworkView extends JPanel {
+    /**
+     * No longer used
+     */
     private boolean DEBUG = false;
 
+    /**
+     * Table that lists all the files
+     */
     JTable fileTable;
+    /**
+     * This peers Environment
+     */
     Environment env;
+
+    /**
+     * Info shown at the bottom of the window, namely the number of peers currently connected
+     */
     JLabel statusLabel;
+    /**
+     * Cached data about the files shown in the table
+     */
     ConcurrentHashMap<String, FileInfo> fileInfo = new ConcurrentHashMap<>();
 
+    /**
+     * Opens up a NewFileView to upload a new file
+     */
     synchronized void uploadNewFile() {
         new NewFileView(env, frame);
     }
 
+    /**
+     * Opens up a BanUserView to ban a user
+     */
     synchronized void banUser() {
         new BanUserView(env, frame);
     }
 
+    /**
+     * Opens up a NewUserView to add a new user
+     */
     synchronized void newUser() {
 
         new NewUserView(env, frame);
     }
 
+    /**
+     * Opens up a ListUsers view to list all the users in the network
+     */
     synchronized void listUsers() {
         new ListUsers(env, frame);
     }
 
+    /**
+     * Folder to store temporary copies of shared files.
+     * Creates if does not exist and also makes sure it is a directory if it does exist.
+     *
+     * @return the file
+     * @throws Exception the exception
+     */
     public File downloadsFolder() throws Exception {
         File downloads = new File("Downloads");
         if(downloads.isFile()) {
@@ -74,6 +115,9 @@ public class NetworkView extends JPanel {
         return downloads;
     }
 
+    /**
+     * Disconnects from the network to allow connection to a new network.
+     */
     synchronized void disconnect() {
         Map<Thread, StackTraceElement[]> threads = Thread.getAllStackTraces();
         Thread curr = Thread.currentThread();
@@ -83,17 +127,32 @@ public class NetworkView extends JPanel {
             }
         }
 
+        frame.setVisible(false);
+        frame.dispose();
         NetworkView.main(new String[]{});
     }
 
+    /**
+     * Stores parent frame.
+     */
     JFrame frame;
+
+    /**
+     * Instantiates a new Network view.
+     * Adds components to GUI.
+     *
+     * @param frame the parent JFrame
+     * @param env   this peer's Environment
+     */
     public NetworkView(JFrame frame, Environment env) {
         super(new GridLayout(1, 0));
         this.frame = frame;
 
+        // Top menu bar
         JMenuBar menuBar = new JMenuBar();
         JMenu menu = new JMenu("Actions");
 
+        // Add Upload new file item to top menu bar
         JMenuItem addFileItem = new JMenuItem("Upload new file");
         addFileItem.addActionListener((ActionEvent e) -> {
             SwingUtilities.invokeLater(() -> {
@@ -102,6 +161,8 @@ public class NetworkView extends JPanel {
         });
         menu.add(addFileItem);
         menu.addSeparator();
+
+        // Add List Users item to top menu bar
         JMenuItem listUsersItem = new JMenuItem("List Users");
         listUsersItem.addActionListener((ActionEvent e) -> {
             SwingUtilities.invokeLater(() -> {
@@ -110,7 +171,9 @@ public class NetworkView extends JPanel {
         });
         menu.add(listUsersItem);
 
+        // Only add these items if you are a root user
         if(env.getRootKey()!=null) {
+            // Add ban user item to top menu bar
             JMenuItem banUserItem = new JMenuItem("Ban User");
             banUserItem.addActionListener((ActionEvent e) -> {
                 SwingUtilities.invokeLater(() -> {
@@ -119,6 +182,7 @@ public class NetworkView extends JPanel {
             });
             menu.add(banUserItem);
 
+            // Add new user item to top menu bar
             JMenuItem newUserItem = new JMenuItem("New User");
             newUserItem.addActionListener((ActionEvent e) -> {
                 SwingUtilities.invokeLater(() -> {
@@ -129,6 +193,7 @@ public class NetworkView extends JPanel {
         }
 
         menu.addSeparator();
+        // Add Refresh item to top menu bar
         JMenuItem refreshItem = new JMenuItem("Refresh");
 
         refreshItem.addActionListener((a) -> {
@@ -142,6 +207,8 @@ public class NetworkView extends JPanel {
             });
         });
         menu.add(refreshItem);
+
+        // Add Exit option to top menu bar
         JMenuItem disconnectItem = new JMenuItem("Exit");
         disconnectItem.addActionListener((e) -> {
             SwingUtilities.invokeLater(() -> {
@@ -151,9 +218,11 @@ public class NetworkView extends JPanel {
         menu.add(disconnectItem);
 
 
+        // Add menu to menubar and add menubar to frame
         menuBar.add(menu);
         frame.setJMenuBar(menuBar);
 
+        // Set the callback for updating the GUI file list table
         this.env = env;
         env.getFM().setChangeHandler(() -> {
             SwingUtilities.invokeLater(() -> {
@@ -161,6 +230,7 @@ public class NetworkView extends JPanel {
             });
         });
 
+        // Set the callback for updating a row in the GUI file list table
         env.getFM().setDownloadChanged((file) -> {
             SwingUtilities.invokeLater(() -> {
                 updateTableEntry(file.name, file);
@@ -168,7 +238,11 @@ public class NetworkView extends JPanel {
         });
         this.setLayout(new BorderLayout());
 
+        // Create table
         fileTable = new JTable(createTableModel());
+
+        // Set cell renderers for each column, to display different colors
+        // for different download statuses
         for(int i = 0; i<fileTable.getColumnCount(); i++) {
 
             fileTable.getColumnModel().getColumn(i).setCellRenderer(
@@ -221,7 +295,10 @@ public class NetworkView extends JPanel {
         add(scrollPane);
         updateTable();
 
+        // Create right click context menu for right clicking on files listed in the table
         final JPopupMenu popup = new JPopupMenu();
+
+        // Add Download option to right click menu
         JMenuItem downloadItem = new JMenuItem("Download");
         downloadItem.addActionListener(new ActionListener() {
             @Override
@@ -233,6 +310,7 @@ public class NetworkView extends JPanel {
         });
         popup.add(downloadItem);
 
+        // Add Delete File option to right click menu
         JMenuItem deleteItem = new JMenuItem("Delete File");
         deleteItem.addActionListener((a) -> {
             try {
@@ -248,6 +326,7 @@ public class NetworkView extends JPanel {
         });
         popup.add(deleteItem);
 
+        // Add Cancel Download button to right click menu
         JMenuItem cancelDownloadItem = new JMenuItem("Cancel Download");
         cancelDownloadItem.addActionListener((a) -> {
             try {
@@ -267,6 +346,7 @@ public class NetworkView extends JPanel {
         });
         popup.add(cancelDownloadItem);
 
+        // Add Update File button to right click menu
         JMenuItem updateItem = new JMenuItem("Update file");
         updateItem.addActionListener((a) -> {
             try {
@@ -287,6 +367,7 @@ public class NetworkView extends JPanel {
         });
         popup.add(updateItem);
 
+        // Add Create Local Copy and View option to right click menu
         JMenuItem viewFileItem = new JMenuItem("Create Local Copy and View");
         viewFileItem.addActionListener((a) -> {
             try {
@@ -308,10 +389,10 @@ public class NetworkView extends JPanel {
                         String.format("Error viewing file: %s", e.getMessage()));
             }
         });
-
         popup.add(viewFileItem);
 
-
+        // This listener will make sure that whatever is right clicked
+        // will then be selected in the table, which is not the default behavior
         popup.addPopupMenuListener(new PopupMenuListener() {
 
             @Override
@@ -341,6 +422,8 @@ public class NetworkView extends JPanel {
             }
         });
         fileTable.setComponentPopupMenu(popup);
+
+        // Create bottom of the window status bar
         JPanel statusPanel = new JPanel();
         statusPanel.setBorder(new BevelBorder(BevelBorder.LOWERED));
         this.add(statusPanel, BorderLayout.SOUTH);
@@ -350,13 +433,17 @@ public class NetworkView extends JPanel {
         statusLabel.setHorizontalAlignment(SwingConstants.LEFT);
         statusPanel.add(statusLabel);
 
+        // Set callback function for when the number of connected peers changes,
+        // which will update the status bar with the number of connected peers
         env.changes.setHandler("peerlist-changed", (arg) -> {
             SwingUtilities.invokeLater(() -> {
                 statusLabel.setText(String.format("Connected to %d peers", env.getPm().getPeers().size()));
             });
         });
+        // Initialize the status bar
         env.changes.runHandler("peerlist-changed", 0);
 
+        // Set callback function for if a download fails because the file is corrupted
         env.changes.setHandler("download-failed", (arg) -> {
             SwingUtilities.invokeLater(() -> {
                 JOptionPane.showMessageDialog(frame,
@@ -366,6 +453,11 @@ public class NetworkView extends JPanel {
     }
 
 
+    /**
+     * Helper function to create a table model.
+     *
+     * @return the default table model
+     */
     public DefaultTableModel createTableModel() {
         DefaultTableModel m = new DefaultTableModel();
 
@@ -373,18 +465,49 @@ public class NetworkView extends JPanel {
         return m;
     }
 
+    /**
+     * Helper function to open up a file in the current operating system's
+     * file explorer.
+     *
+     * @param f the file to view
+     * @throws Exception the exception
+     */
     public static void viewFileInExplorer(File f) throws Exception {
         if (System.getProperty("os.name").contains("Windows")) {
             Runtime.getRuntime().exec("explorer.exe /select," + f.getAbsolutePath());
+        }else{
+            Desktop.getDesktop().open(f.getParentFile());
         }
     }
 
+    /**
+     * Various file statuses.
+     */
     enum FileStatusCode {
+        /**
+         * Downloading file status code.
+         */
         DOWNLOADING,
+        /**
+         * Hasfile file status code.
+         */
         HASFILE,
+        /**
+         * Corrupted file status code.
+         */
         CORRUPTED,
+        /**
+         * Doesn't have file status code.
+         */
         DOESNT_HAVE
     }
+
+    /**
+     * Convert a string from the table into the relevant status.
+     *
+     * @param status the status string
+     * @return the equivalent file status code
+     */
     FileStatusCode statusFromStatusString(String status) {
         if(status.contains("Downloading")) {
             return FileStatusCode.DOWNLOADING;
@@ -397,12 +520,22 @@ public class NetworkView extends JPanel {
         }
     }
 
-    Random r = new Random(100);
-
+    /**
+     * Cached values of rows in the table.
+     */
     ConcurrentHashMap<String, Object[]> rows = new ConcurrentHashMap<String, Object[]>();
+    /**
+     * Lock to prevent multiple threads from updating the GUI at the same time.
+     */
     final Object updateLocker = new Object();
 
-
+    /**
+     * Formats a size in bytes into a human readable string representing the size in B, KB, MB, or GB
+     * depending on how big the file is.
+     *
+     * @param size the size of the file in bytes
+     * @return the formatted string telling the size
+     */
     String formatSizeStr(float size) {
         if(size>1024*1024*1024) {
             return String.format("%.2f GB", size/(1024.0f*1024.0f*1024.0f));
@@ -415,6 +548,14 @@ public class NetworkView extends JPanel {
         }
     }
 
+    /**
+     * Format a download speed in bytes per second
+     * into an equivalent speed in MB/S or KB/s or B/s depending
+     * on how fast the speed is.
+     *
+     * @param downloadSpeed the download speed in bytes/second
+     * @return the formatted string representing the download speed
+     */
     String formatSpeedStr(float downloadSpeed) {
         if(downloadSpeed>1024) {
             if(downloadSpeed>1024*1024) {
@@ -430,6 +571,13 @@ public class NetworkView extends JPanel {
         }
     }
 
+    /**
+     * Converts a FileStatus object into the Object[] type needed
+     * by the JTable.
+     *
+     * @param status the status of the file
+     * @return Object[] needed by JTable
+     */
     Object[] valsFromStatus(FileManager.FileStatus status) {
         Object[] obj = new Object[3];
         String statusStr = null;
@@ -451,7 +599,20 @@ public class NetworkView extends JPanel {
         return obj;
     }
 
+    /**
+     *  Updates a row in the table
+     *  If the lock isn't acquired we just don't try
+     *  to update because we don't want to many threads sleeping for the lock.
+     */
+
     Lock updateTableEntryLock = new ReentrantLock();
+
+    /**
+     * Update table entry.
+     *
+     * @param name the name of the entry to update
+     * @param file metadata about the entry to update
+     */
     public void updateTableEntry(String name, FileInfo file) {
         if(updateTableEntryLock.tryLock()) {
             try {
@@ -476,12 +637,27 @@ public class NetworkView extends JPanel {
         }
 
     }
+
+    /**
+     * Gets the row number for a given file.
+     *
+     * @param m    the table model
+     * @param name the name of the file
+     * @return the row number of said table entry
+     */
     int getRowNumber(DefaultTableModel m, String name) {
         for(int i = 0; i<m.getRowCount(); i++) {
             if(m.getValueAt(i, 0).equals(name)) return i;
         }
         return -1;
     }
+
+    /**
+     * Updates a row in the table.
+     *
+     * @param name the filename of the row to update
+     * @param vals Object[] to update it with
+     */
     public void updateTableEntry(String name, Object[] vals) {
         synchronized (updateLocker) {
             DefaultTableModel m = (DefaultTableModel) fileTable.getModel();
@@ -492,6 +668,12 @@ public class NetworkView extends JPanel {
             rows.put(name, vals);
         }
     }
+
+    /**
+     * Removes a row from the table.
+     *
+     * @param name the filename of the row to remove
+     */
     void removeTableEntry(String name) {
         synchronized (updateLocker) {
 
@@ -502,6 +684,12 @@ public class NetworkView extends JPanel {
         }
     }
 
+    /**
+     * Adds a row to the table.
+     *
+     * @param name the name of the file being added
+     * @param vals the Object[] to insert into JTable
+     */
     void addTableEntry(String name, Object[] vals) {
         synchronized (updateLocker) {
             DefaultTableModel m = (DefaultTableModel) fileTable.getModel();
@@ -509,8 +697,16 @@ public class NetworkView extends JPanel {
             rows.put(name, vals);
         }
     }
+
+    /**
+     * Lock to prevent the following function from being run more than once concurrently.
+     */
     Object updateLock = new Object();
 
+    /**
+     * Updates all the rows in the table based on information from the manifest and all the
+     * downloads in progress.
+     */
     public void updateTable() {
         synchronized (updateLock) {
             try {
@@ -552,8 +748,8 @@ public class NetworkView extends JPanel {
     }
 
     /**
-     * Create the GUI and show it. For thread safety, this method should be
-     * invoked from the event-dispatching thread.
+     * Helper function to create a new JFrame and add a StartScreen panel to it.
+     * This is called as the entry point to the application.
      */
     private static void createAndShowGUI() {
         //Create and set up the window.
@@ -576,6 +772,12 @@ public class NetworkView extends JPanel {
         frame.setVisible(true);
     }
 
+    /**
+     * Helper function to create a JFrame and add a NetworkView panel to it.
+     * This is called from the StartScreen when a network is connected to.
+     *
+     * @param env the env
+     */
     public static void createAndShowNetwork(Environment env) {
         //Create and set up the window.
         JFrame frame = new JFrame("Lickety Split");
@@ -597,6 +799,12 @@ public class NetworkView extends JPanel {
         frame.setVisible(true);
     }
 
+    /**
+     * Entry point for this file for testing purposes. The real entry point
+     * is in org.licketysplit.Main.main.
+     *
+     * @param args the input arguments
+     */
     public static void main(String[] args) {
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());

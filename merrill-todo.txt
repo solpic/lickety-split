@@ -1,2 +1,0 @@
-- Retry on failed download
-- Fix cant select elements in table

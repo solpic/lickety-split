@@ -13,12 +13,35 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 
+/**
+ * This class is only used for testing and doesn't affect normal usage of the application
+ * whatsoever. It implements some helper functions to generate networks under various conditions.
+ */
 public class TestNetworkManager {
+    /**
+     * The Root user.
+     */
     String rootUser;
+    /**
+     * The Rand.
+     */
     Random rand;
+    /**
+     * The Test port min.
+     */
     Integer testPortMin;
+    /**
+     * The Root info file.
+     */
     File rootInfoFile;
 
+    /**
+     * Instantiates a new Test network manager.
+     *
+     * @param username  the username
+     * @param clearLogs the clear logs
+     * @throws Exception the exception
+     */
     public TestNetworkManager(String username, boolean clearLogs) throws Exception {
         rootUser = username;
         rand = new Random(System.currentTimeMillis());
@@ -30,12 +53,31 @@ public class TestNetworkManager {
 //        }
 //        if(clearLogs) this.clearLogs();
     }
+
+    /**
+     * Instantiates a new Test network manager.
+     *
+     * @throws Exception the exception
+     */
     public TestNetworkManager() throws Exception {
         this("testuser", true);
     }
+
+    /**
+     * The constant logPath.
+     */
     public static Path logPath = Paths.get("logs");
 
+    /**
+     * The Used ports.
+     */
     List<Integer> usedPorts;
+
+    /**
+     * Next port int.
+     *
+     * @return the int
+     */
     public int nextPort() {
         synchronized (usedPorts) {
             int port;
@@ -47,6 +89,13 @@ public class TestNetworkManager {
         }
     }
 
+    /**
+     * Add peer environment.
+     *
+     * @param disableLogging the disable logging
+     * @return the environment
+     * @throws Exception the exception
+     */
     public Environment addPeer(boolean disableLogging) throws Exception {
 
         Integer port = nextPort();
@@ -96,24 +145,76 @@ public class TestNetworkManager {
         return env;
     }
 
+    /**
+     * Clear logs.
+     *
+     * @throws Exception the exception
+     */
     public void clearLogs() throws Exception{
         FileUtils.cleanDirectory(logPath.toFile());
     }
 
+    /**
+     * The type Peer gen info.
+     */
     public static class PeerGenInfo {
+        /**
+         * The Username.
+         */
         public String username;
+        /**
+         * The Ip.
+         */
         public String ip;
+        /**
+         * The Port.
+         */
         public Integer port;
+        /**
+         * The Instance id.
+         */
         public String instanceId;
+        /**
+         * The Is root.
+         */
         public boolean isRoot;
+        /**
+         * The Is local.
+         */
         public boolean isLocal;
+        /**
+         * The Local threaded.
+         */
         public boolean localThreaded;
 
+        /**
+         * The Working dir.
+         */
         public String workingDir;
+        /**
+         * The Cmd.
+         */
         public String cmd;
+        /**
+         * The Cmd path.
+         */
         public String cmdPath;
+        /**
+         * The Args.
+         */
         public String[] args;
 
+        /**
+         * Instantiates a new Peer gen info.
+         *
+         * @param username      the username
+         * @param ip            the ip
+         * @param port          the port
+         * @param instanceId    the instance id
+         * @param isRoot        the is root
+         * @param isLocal       the is local
+         * @param localThreaded the local threaded
+         */
         public PeerGenInfo(String username, String ip, Integer port, String instanceId,
                            boolean isRoot, boolean isLocal, boolean localThreaded) {
             this.username = username;
@@ -126,13 +227,36 @@ public class TestNetworkManager {
         }
     }
 
+    /**
+     * The type Test network data info.
+     */
     public static class TestNetworkDataInfo {
+        /**
+         * The Root key file.
+         */
         public String rootKeyFile;
+        /**
+         * The Info file.
+         */
         public String infoFile;
+        /**
+         * The Id keys.
+         */
         public Map<String, String> idKeys;
+        /**
+         * The Peers.
+         */
         public List<PeerGenInfo> peers;
     }
 
+    /**
+     * Generate network with peers test network data info.
+     *
+     * @param dst   the dst
+     * @param peers the peers
+     * @return the test network data info
+     * @throws Exception the exception
+     */
     public TestNetworkDataInfo generateNetworkWithPeers(String dst, List<PeerGenInfo> peers) throws Exception {
         FileUtils.cleanDirectory(new File(dst));
         File infodir = new File(Paths.get(dst, "infodir").toString());
@@ -172,8 +296,21 @@ public class TestNetworkManager {
         return data;
     }
 
+    /**
+     * The Root info dir.
+     */
     PeerInfoDirectory rootInfoDir;
+    /**
+     * The Root key store.
+     */
     KeyStore rootKeyStore;
+
+    /**
+     * Gets root env.
+     *
+     * @return the root env
+     * @throws Exception the exception
+     */
     public Environment getRootEnv() throws Exception {
         rootInfoFile = File.createTempFile("testInfoDir", null);
         rootInfoFile.deleteOnExit();
